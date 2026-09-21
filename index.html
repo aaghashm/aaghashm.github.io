@@ -30,6 +30,7 @@ html{-webkit-text-size-adjust:100%;overflow-x:clip}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:clip}
 a{color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 32px}
 
 /* ---------- stage ---------- */
 .stage{position:relative;height:100vh;height:100svh;min-height:520px;overflow:hidden;background:var(--sky);isolation:isolate;outline:none}
@@ -47,10 +48,38 @@ a{color:inherit}
 .clock{font:300 clamp(28px,5vw,64px)/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.045em;white-space:nowrap;margin:0}
 .clock .u{font-size:.4em;color:var(--muted);margin:0 .32em 0 .08em;letter-spacing:0;font-weight:500}
 .clock .cs{color:var(--accent-ink)}
+.ctl{grid-area:ctl;display:flex;flex-direction:row-reverse;justify-content:flex-start;align-items:center;gap:8px}
+.skip{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;background:var(--chip);border:1px solid var(--chip-line);font:500 13px/1 var(--mono);text-decoration:none;color:var(--fg);transition:transform .25s var(--ease),background .25s var(--ease)}
+.skip:hover{transform:translateY(-1px)}
 
 .title{position:absolute;left:0;right:0;top:27%;z-index:2;text-align:center;padding:0 16px;pointer-events:none;transition:opacity .9s var(--ease),transform .9s var(--ease)}
 .title h1{font:700 clamp(38px,7vw,124px)/.92 var(--sans);letter-spacing:-.05em;margin:0;text-wrap:balance}
 .title h1 em{font-style:normal;color:var(--accent-ink);display:block}
+
+/* ---------- sections ---------- */
+section{padding:112px 0 0}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.1em;color:var(--accent-ink);margin:0 0 14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:18px;height:2px;background:var(--accent);border-radius:2px}
+h2.big{font:700 clamp(38px,6vw,72px)/.98 var(--sans);letter-spacing:-.045em;margin:0;scroll-margin-top:24px}
+h2.big:focus{outline:none}
+.lede{color:var(--muted);font-size:18px;max-width:560px;margin:16px 0 0}
+
+.laps{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.laphead{display:grid;grid-template-columns:64px minmax(0,1fr) 140px 120px 170px;gap:16px;padding:0 16px 10px;font:500 11px/1 var(--mono);letter-spacing:.08em;color:var(--muted)}
+.laphead span:last-child{text-align:right}
+.lap{display:grid;grid-template-columns:64px minmax(0,1fr) 140px 120px 170px;grid-template-areas:"n main lang date split";gap:16px;align-items:center;padding:18px 16px;border-bottom:1px solid var(--line);position:relative;transition:background .25s var(--ease)}
+.lap:hover{background:var(--card)}
+.lap-n{grid-area:n;font:500 13px/1 var(--mono);color:var(--muted);display:flex;align-items:center;gap:9px;font-variant-numeric:tabular-nums}
+.lap-main{grid-area:main;min-width:0}
+.lap-title{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.lap-name{font:500 18px/1.25 var(--sans);letter-spacing:-.01em;text-decoration:none;word-break:break-word}
+.lap-name:hover{text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px}
+.lap-blurb{display:block;color:var(--muted);font-size:14px;line-height:1.4;margin-top:3px}
+.lap-meta{display:contents}
+.lap-lang{grid-area:lang;font:500 13px/1 var(--mono);display:flex;align-items:center;gap:8px;white-space:nowrap}
+.lap-lang i{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.lap-date{grid-area:date;font:500 13px/1 var(--mono);color:var(--muted);white-space:nowrap}
+.lap-split{grid-area:split;font:500 15px/1 var(--mono);font-variant-numeric:tabular-nums;text-align:right;display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:6px 8px}
 
 </style>
 </head>
@@ -59,6 +88,9 @@ a{color:inherit}
 <header class="stage" id="stage" tabindex="-1">
 
   <div class="hud-top">
+    <div class="ctl">
+      <a class="skip" href="#laps">just the list ↓</a>
+    </div>
     <div class="who">
       <p class="nm">aaghash murugesan</p>
       <div class="role">python dev</div>
@@ -75,14 +107,66 @@ a{color:inherit}
 
 </header>
 
+<main>
+  <section aria-labelledby="laps">
+    <div class="wrap">
+      <p class="eyebrow">the laps</p>
+      <h2 class="big" id="laps" tabindex="-1">every repo, timed.</h2>
+      <p class="lede">each split is the time since the repo before it. same data as the game, minus the jumping.</p>
+      <div class="laphead" aria-hidden="true"><span>lap</span><span>repo</span><span>language</span><span>created</span><span>split</span></div>
+      <ol class="laps" id="lapslist"></ol>
+    </div>
+  </section>
+</main>
+
 <script>
 (() => {
 'use strict';
 const D = document, root = D.documentElement;
 const $ = (s) => D.querySelector(s);
+const MON = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const DAY0 = Date.UTC(2022, 8, 19);
+
+const LANGS = {
+  Python: { c: '#3b82f6', t: 'py', label: 'python' },
+  Jupyter: { c: '#f97316', t: 'nb', label: 'jupyter' },
+  JavaScript: { c: '#eab308', t: 'js', label: 'javascript', dark: 1 },
+  TypeScript: { c: '#8b5cf6', t: 'ts', label: 'typescript' },
+  Java: { c: '#b45309', t: 'jv', label: 'java' },
+  HTML: { c: '#ef4444', t: '</>', label: 'html' },
+  Tableau: { c: '#14b8a6', t: 'tb', label: 'tableau' },
+  none: { c: '#e5e7eb', t: '··', label: 'no language', dark: 1 },
+};
+const BASE = [
+  ['2022-09-19', 'PYTHON-TEXT-TO-SPEECH', 'Python', 'the first repo. lap one.'],
+  ['2022-09-20', 'MACHINE-LEARNING-PROJECTS', 'Jupyter', ''],
+  ['2022-09-23', 'PYTHON-BASICS-NOTES', 'Jupyter', 'python notes shared with a telgram group.'],
+  ['2022-09-24', 'SIMPLE-PYTHON-PROJECTS', 'Jupyter', ''],
+  ['2023-11-28', 'CODESOFT', 'Jupyter', 'dataset notebooks from the codsoft internship.'],
+  ['2023-12-09', 'react_irc', 'HTML', 'react tasks.'],
+  ['2024-01-14', 'Tableau', 'Tableau', 'tableau dashboards.'],
+  ['2024-02-03', 'CGPA-BUDDY', 'JavaScript', ''],
+  ['2024-04-27', 'restapiirc', 'Java', 'a rest api.'],
+  ['2024-07-23', 'IRC_Student-E-Learning', null, ''],
+  ['2024-08-06', 'vehicle_repair_app', 'JavaScript', ''],
+  ['2024-11-17', 'mlops-zoomcamp', 'Jupyter', ''],
+  ['2025-01-03', 'DSA-PREP', 'HTML', ''],
+  ['2025-01-20', 'App-Releases', null, 'i release open source apps here!'],
+  ['2025-02-24', 'formality', 'Jupyter', 'models and inference.'],
+  ['2026-06-28', 'persistent-stopwatch', 'TypeScript', 'a stopwatch that keeps counting after you close the tab.'],
+].map(([date, name, lang, blurb]) => ({ date, name, lang, blurb }));
 
 /* ---------- utils ---------- */
 const pad = (n, l = 2) => String(n).padStart(l, '0');
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
+const parseDay = (s) => Math.round((Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) - DAY0) / 864e5);
+const todayIdx = () => { const n = new Date(); return Math.round((Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) - DAY0) / 864e5); };
+const dateOf = (d) => new Date(DAY0 + Math.round(d) * 864e5);
+const dayDate = (d) => { const t = dateOf(d); return t.getUTCDate() + ' ' + MON[t.getUTCMonth()] + ' ' + t.getUTCFullYear(); };
+const dayYear = (d) => dateOf(d).getUTCFullYear();
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const langInfo = (l) => LANGS[l || 'none'] || { c: '#94a3b8', t: String(l).slice(0, 2).toLowerCase(), label: String(l).toLowerCase() };
 
 /* ---------- dom refs ---------- */
 const el = { cy: $('#cy'), cd: $('#cd'), ct: $('#ct'), cc: $('#cc') };
@@ -110,7 +194,28 @@ function updateClock() {
   setT(el.cc, 'c', '.' + pad(Math.floor(t / 10) % 100));
 }
 
+/* ---------- laps list ---------- */
+function lapData() {
+  const all = BASE.map((r) => ({ ...r, day: parseDay(r.date) })).sort((a, b) => a.day - b.day);
+  all.forEach((r, i) => { r.n = i + 1; r.split = i ? r.day - all[i - 1].day : 0; });
+  return all;
+}
+function renderLaps() {
+  const L = lapData();
+  const html = L.map((r) => {
+    const li = langInfo(r.lang);
+    return '<li class="lap" data-name="' + esc(r.name) + '">' +
+      '<span class="lap-n">' + pad(r.n) + '</span>' +
+      '<span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/' + encodeURIComponent(r.name) + '" target="_blank" rel="noopener">' + esc(r.name.toLowerCase()) + '</a></span>' +
+      (r.blurb ? '<span class="lap-blurb">' + esc(r.blurb) + '</span>' : '') + '</span>' +
+      '<span class="lap-meta"><span class="lap-lang"><i style="--c:' + li.c + '"></i>' + esc(li.label) + '</span><span class="lap-date">' + dayDate(r.day) + '</span></span>' +
+      '<span class="lap-split"><span>' + (r.n === 1 ? 'start' : '+' + r.split + 'd') + '</span></span></li>';
+  }).join('');
+  $('#lapslist').innerHTML = html;
+}
+
 /* ---------- boot ---------- */
+renderLaps();
 updateClock();
 requestAnimationFrame(frame);
 })();
