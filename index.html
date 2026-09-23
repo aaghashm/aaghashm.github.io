@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>aaghash murugesan · still running</title>
 <meta name="description" content="aaghash murugesan, python dev. every repo since 19 sep 2022, timed. the clock never stops.">
-<meta name="theme-color" content="#faf7f2">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#faf7f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
 <link id="favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='13' y='1' width='6' height='4' rx='1' fill='%23f5a623'/%3E%3Ccircle cx='16' cy='18' r='12' fill='%23141416' stroke='%23f5a623' stroke-width='3'/%3E%3Cpath d='M16 18V9' stroke='%23fff' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,6 +26,22 @@
   --mono:"JetBrains Mono","JB Fallback",ui-monospace,Menlo,monospace;
   --ease:cubic-bezier(.2,.8,.2,1);
   color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme=light]){
+    --bg:#0b0b0d;--fg:#ededed;--muted:#9c978f;--card:#141417;--line:#26262c;
+    --accent-ink:#f5a623;--accent-soft:rgba(245,166,35,.12);--fastest-ink:#cda4ff;--slate-ink:#a3b1c6;
+    --chip:rgba(12,12,15,.62);--chip-line:rgba(255,255,255,.09);
+    --shadow:0 0 0 1px rgba(255,255,255,.025),0 0 36px -12px rgba(245,166,35,.22);
+    --sky:#16233b;color-scheme:dark;
+  }
+}
+:root[data-theme=dark]{
+  --bg:#0b0b0d;--fg:#ededed;--muted:#9c978f;--card:#141417;--line:#26262c;
+  --accent-ink:#f5a623;--accent-soft:rgba(245,166,35,.12);--fastest-ink:#cda4ff;--slate-ink:#a3b1c6;
+  --chip:rgba(12,12,15,.62);--chip-line:rgba(255,255,255,.09);
+  --shadow:0 0 0 1px rgba(255,255,255,.025),0 0 36px -12px rgba(245,166,35,.22);
+  --sky:#16233b;color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;overflow-x:clip}
