@@ -110,6 +110,14 @@ h2.big:focus{outline:none}
 .lap.hero .lap-name{font-weight:700;font-size:21px}
 .lap.hero .lap-split{color:var(--accent-ink)}
 
+/* footer */
+.foot{padding:112px 32px 64px}
+.foot-in{border-top:1px solid var(--line);padding-top:28px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px 28px;font:500 13px/1.6 var(--mono);color:var(--muted)}
+.foot-in a{color:var(--fg);text-decoration:none}
+.foot-in a:hover{text-decoration:underline}
+.foot-in b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}
+.ph{display:inline-flex;align-items:center;gap:7px}
+.ph i{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#ffd3a8,#ff8a4c)}
 </style>
 </head>
 <body>
@@ -148,6 +156,14 @@ h2.big:focus{outline:none}
     </div>
   </section>
 </main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <a href="https://github.com/aaghashm" target="_blank" rel="noopener">github.com/aaghashm ↗</a>
+    <span id="fstat">16 repos · since 19 sep 2022 · 0 stops</span>
+    <span class="ph"><i aria-hidden="true"></i>built on phoenix</span>
+  </div>
+</footer>
 
 <script>
 (() => {
@@ -251,9 +267,13 @@ function renderLaps() {
   const busy = Object.entries(yc).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
   $('#facts').innerHTML = '<li><b>laps</b> ' + L.length + '</li><li><b>fastest</b> +' + min + 'd' + (tie ? ' (tied)' : '') + '</li><li><b>longest gap</b> +' + max + 'd</li><li><b>busiest year</b> ' + busy[0] + ', ' + busy[1] + ' repos</li>';
 }
+function renderFoot() {
+  const n = BASE.length;
+  $('#fstat').innerHTML = n + ' repos · <b>' + fmtInt(todayIdx()) + '</b> days · 0 stops';
+}
 
 /* ---------- boot ---------- */
-renderLaps();
+renderLaps(); renderFoot();
 updateClock();
 requestAnimationFrame(frame);
 })();
