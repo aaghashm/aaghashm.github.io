@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>aaghash murugesan · still running</title>
-<meta name="description" content="aaghash murugesan, python dev. every repo since 19 sep 2022, timed. the clock never stops.">
+<meta name="description" content="aaghash murugesan, python dev. a little runner crossing every repo since 19 sep 2022. the clock never stops.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#faf7f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
@@ -174,6 +174,7 @@ const D = document, root = D.documentElement;
 const $ = (s) => D.querySelector(s);
 const MON = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 const DAY0 = Date.UTC(2022, 8, 19);
+const STEP = 1 / 120, RUN = 300;
 const SANS = "'Space Grotesk','SG Fallback',system-ui,sans-serif", MONO = "'JetBrains Mono','JB Fallback',ui-monospace,Menlo,monospace";
 
 const LANGS = {
@@ -266,14 +267,42 @@ function resize() {
   zoom = phone ? 1.4 : clamp(Hd / 760, 1, 1.35);
   vw = Wd / zoom; vh = Hd / zoom; gy = Math.round(vh * .79); rx = phone ? .28 : .3;
   hs = clamp(gy / 560, .5, 1.15);
-  render();
+  if (!running) render();
+}
+
+/* ---------- state ---------- */
+const R = { x: 0, y: 0, ground: true, speed: RUN, phase: 0 };
+let camX = -300, simT = 0;
+let running = false;
+
+camX = R.x - vw * rx;
+
+/* ---------- physics ---------- */
+function step(dt) {
+  simT += dt;
+  R.x += RUN * dt;
 }
 
 /* ---------- loop ---------- */
-let camX = 0;
-function frame() {
+let last = performance.now(), acc = 0, stageOn = true, stageRatio = 1;
+function frame(now) {
   requestAnimationFrame(frame);
-  updateClock();
+  let dt = (now - last) / 1000; last = now;
+  if (!stageOn || D.hidden) return;
+  dt = Math.min(dt, 1 / 30);
+  running = true;
+  acc += dt;
+  let guard = 0;
+  while (acc >= STEP && guard++ < 400) { step(STEP); acc -= STEP; }
+  animate(dt);
+  const tx = R.x - vw * rx;
+  camX += (tx - camX) * (1 - Math.pow(1 - .12, dt * 60));
+  if (Math.abs(tx - camX) > vw * 2) camX = tx;
+  render();
+  if (!RM) updateClock();
+}
+function animate(dt) {
+  R.phase += dt * Math.PI * 2 * 9 * Math.sqrt(R.speed / RUN);
 }
 
 /* ---------- drawing ---------- */
@@ -295,6 +324,7 @@ function render() {
   drawMountains(p.far, scroll * .2 * par, p);
   drawHills(p.mid, scroll * .5 * par);
   drawGround(T);
+  drawRunner(T);
 }
 function drawMountains(col, off, p) {
   const sp = 190, i0 = Math.floor(off / sp) - 1, i1 = Math.ceil((off + vw) / sp) + 1;
@@ -336,6 +366,36 @@ function drawGround(T) {
     const h = hash(i * 5.3), sx = i * sp - off;
     rr(sx, gy + 16 + h * Math.max(10, vh - gy - 34), 8 + h * 16, 3, 1.5); ctx.fill();
   }
+}
+function drawRunner(T) {
+  const sx = R.x - camX, base = gy - R.y;
+  const k = 1 - Math.min(Math.max(0, R.y) / 220, .65);
+  ctx.fillStyle = 'rgba(0,0,0,' + (.2 * k).toFixed(3) + ')';
+  ctx.beginPath(); ctx.ellipse(sx, gy + 2, 13 * k, 3 * k, 0, 0, 7); ctx.fill();
+  ctx.save(); ctx.translate(sx, base);
+  const air = !R.ground, ph = R.phase, fast = R.speed > 420;
+  const bob = air ? 0 : -Math.abs(Math.sin(ph)) * 1.6;
+  ctx.translate(0, bob);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const leg = (a, col, bend) => {
+    const hx = 0, hy = -12, kx = hx + Math.sin(a) * 6.5, ky = hy + Math.cos(a) * 6.5, sa = a - bend;
+    ctx.strokeStyle = col; ctx.lineWidth = 4.2; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(kx, ky); ctx.lineTo(kx + Math.sin(sa) * 6.5, ky + Math.cos(sa) * 6.5); ctx.stroke();
+  };
+  const arm = (a, col) => {
+    const ax = 1, ay = -23, ex = ax + Math.sin(a) * 5.5, ey = ay + Math.cos(a) * 5.5;
+    ctx.strokeStyle = col; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ex, ey); ctx.lineTo(ex + Math.sin(a + 1.4) * 5, ey + Math.cos(a + 1.4) * 5); ctx.stroke();
+  };
+  const sw = Math.sin(ph) * (fast ? .95 : .8);
+  if (air) { leg(-.5, T.back, .9); arm(.9, T.back); }
+  else { leg(-sw, T.back, Math.max(0, Math.cos(ph)) * 1.3); arm(sw * .9, T.back); }
+  ctx.save(); ctx.translate(0, -12); ctx.rotate(air ? -.05 : fast ? .2 : .1);
+  ctx.fillStyle = T.ink; rr(-6.5, -16, 13, 18, 6.5); ctx.fill();
+  ctx.beginPath(); ctx.arc(1.5, -22, 7.5, 0, 7); ctx.fill();
+  ctx.fillStyle = T.eye; ctx.beginPath(); ctx.ellipse(5, -23, 1.4, 1.9, 0, 0, 7); ctx.fill();
+  ctx.restore();
+  if (air) { leg(.8, T.ink, -.2); arm(-.7, T.ink); }
+  else { leg(sw, T.ink, Math.max(0, -Math.cos(ph)) * 1.3); arm(-sw * .9, T.ink); }
+  ctx.restore();
 }
 
 /* ---------- clock + hud ---------- */
@@ -387,13 +447,17 @@ function renderFoot() {
 }
 
 /* ---------- visibility of the stage ---------- */
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver((es) => { for (const e of es) { stageRatio = e.intersectionRatio; stageOn = e.isIntersecting; } }, { threshold: [0, .1, .25, .5, .75, 1] }).observe(stage);
+}
 if ('ResizeObserver' in window) new ResizeObserver(resize).observe(stage); else addEventListener('resize', resize);
 
 /* ---------- boot ---------- */
 resize();
 renderLaps(); renderFoot();
 updateClock();
-requestAnimationFrame(frame);
+setInterval(() => { if (RM || !running || !stageOn) updateClock(); }, 1000);
+requestAnimationFrame((t) => { last = t; frame(t); });
 })();
 </script>
 </body>
