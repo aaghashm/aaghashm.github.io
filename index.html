@@ -174,7 +174,7 @@ const D = document, root = D.documentElement;
 const $ = (s) => D.querySelector(s);
 const MON = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 const DAY0 = Date.UTC(2022, 8, 19);
-const STEP = 1 / 120, RUN = 300;
+const STEP = 1 / 120, RUN = 300, SPRINT = 540, GRAV = 2600, JUMPV = 900, COYOTE = .09, BUFFER = .12;
 const SANS = "'Space Grotesk','SG Fallback',system-ui,sans-serif", MONO = "'JetBrains Mono','JB Fallback',ui-monospace,Menlo,monospace";
 
 const LANGS = {
@@ -271,16 +271,32 @@ function resize() {
 }
 
 /* ---------- state ---------- */
-const R = { x: 0, y: 0, ground: true, speed: RUN, phase: 0 };
+const R = { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, phase: 0 };
+const input = { jump: false, sprintKey: false };
 let camX = -300, simT = 0;
-let running = false;
+let started = false, running = false;
 
 camX = R.x - vw * rx;
 
 /* ---------- physics ---------- */
-function step(dt) {
+function step(dt, auto, silent) {
   simT += dt;
-  R.x += RUN * dt;
+  const sprint = !auto && input.sprintKey;
+  const target = sprint ? SPRINT : RUN;
+  R.speed += (target - R.speed) * Math.min(1, dt * 7);
+  R.x += R.speed * dt;
+  if (R.ground) R.coyote = COYOTE; else R.coyote -= dt;
+  R.buffer -= dt;
+  if (R.buffer > 0 && R.coyote > 0) {
+    R.vy = JUMPV; R.ground = false; R.coyote = 0; R.buffer = 0; R.cut = false; R.air = 0;
+  }
+  if (!R.ground) {
+    R.air += dt;
+    const held = auto || input.jump;
+    if (!held && !R.cut && R.vy > 0 && R.air > .06) { R.vy *= .45; R.cut = true; }
+    R.vy -= GRAV * dt; R.y += R.vy * dt;
+    if (R.y <= 0 && R.vy <= 0) { R.y = 0; R.vy = 0; R.ground = true; }
+  }
 }
 
 /* ---------- loop ---------- */
@@ -293,7 +309,7 @@ function frame(now) {
   running = true;
   acc += dt;
   let guard = 0;
-  while (acc >= STEP && guard++ < 400) { step(STEP); acc -= STEP; }
+  while (acc >= STEP && guard++ < 400) { step(STEP, false, false); acc -= STEP; }
   animate(dt);
   const tx = R.x - vw * rx;
   camX += (tx - camX) * (1 - Math.pow(1 - .12, dt * 60));
@@ -414,6 +430,33 @@ function updateClock() {
   setT(el.ct, 't', pad(Math.floor(t / 3.6e6)) + ':' + pad(Math.floor(t / 6e4) % 60) + ':' + pad(Math.floor(t / 1e3) % 60));
   setT(el.cc, 'c', '.' + pad(Math.floor(t / 10) % 100));
 }
+
+/* ---------- input ---------- */
+function firstAction() { started = true; }
+function pressJump() { R.buffer = BUFFER; input.jump = true; firstAction(); }
+function releaseJump() { input.jump = false; }
+const isField = (t) => t && t.closest && t.closest('a,button,input,textarea,select,[contenteditable]');
+addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  if (stageRatio < .5) return;
+  if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W') { if (isField(e.target)) return; e.preventDefault(); if (!e.repeat) pressJump(); }
+  else if (k === 'ArrowRight' || k === 'd' || k === 'D') { if (isField(e.target) && k !== 'ArrowRight') return; e.preventDefault(); input.sprintKey = true; firstAction(); }
+});
+addEventListener('keyup', (e) => {
+  const k = e.key;
+  if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W') releaseJump();
+  if (k === 'ArrowRight' || k === 'd' || k === 'D') input.sprintKey = false;
+});
+addEventListener('blur', () => { input.sprintKey = input.jump = false; });
+cv.addEventListener('pointerdown', (e) => {
+  if (e.button > 0) return;
+  pressJump();
+});
+const endPointer = () => { releaseJump(); };
+addEventListener('pointerup', endPointer);
+addEventListener('pointercancel', endPointer);
+cv.addEventListener('contextmenu', (e) => e.preventDefault());
 
 /* ---------- laps list ---------- */
 function lapData() {
