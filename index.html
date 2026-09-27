@@ -48,6 +48,7 @@ html{-webkit-text-size-adjust:100%;overflow-x:clip}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:clip}
 a{color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .wrap{max-width:1040px;margin:0 auto;padding:0 32px}
 
 /* ---------- stage ---------- */
@@ -92,6 +93,9 @@ h2.big:focus{outline:none}
 .lap{display:grid;grid-template-columns:64px minmax(0,1fr) 140px 120px 170px;grid-template-areas:"n main lang date split";gap:16px;align-items:center;padding:18px 16px;border-bottom:1px solid var(--line);position:relative;transition:background .25s var(--ease)}
 .lap:hover{background:var(--card)}
 .lap-n{grid-area:n;font:500 13px/1 var(--mono);color:var(--muted);display:flex;align-items:center;gap:9px;font-variant-numeric:tabular-nums}
+.gd{width:9px;height:9px;border-radius:50%;flex:none;border:1.5px solid transparent}
+.lap.got .gd{background:var(--hit);border-color:var(--hit)}
+.lap.miss .gd{border-color:var(--muted);background:transparent}
 .lap-main{grid-area:main;min-width:0}
 .lap-title{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
 .lap-name{font:500 18px/1.25 var(--sans);letter-spacing:-.01em;text-decoration:none;word-break:break-word}
@@ -248,6 +252,20 @@ const PAL = {};
 for (const m in PALRAW) { PAL[m] = {}; for (const y in PALRAW[m]) { const o = {}; PALRAW[m][y].forEach((h, i) => (o[KEYS[i]] = hex(h))); PAL[m][y] = o; } }
 
 /* ---------- world ---------- */
+let W = null;
+function buildWorld() {
+  const base = [];
+  let x = 700, p = null;
+  BASE.forEach((r, i) => {
+    const day = parseDay(r.date);
+    if (p) x += Math.max(280, 120 * Math.sqrt(day - p.day));
+    const b = { r, day, x, idx: i, L: langInfo(r.lang), hit: false, missed: false, hitT: -9, missT: -9 };
+    b.size = 46; b.rgb = hex(b.L.c);
+    base.push(b); p = b;
+  });
+  const w = { base, blocks: base };
+  return w;
+}
 function paletteAt() {
   return (dark ? PAL.dark : PAL.light)[2022];
 }
@@ -267,7 +285,7 @@ function resize() {
   zoom = phone ? 1.4 : clamp(Hd / 760, 1, 1.35);
   vw = Wd / zoom; vh = Hd / zoom; gy = Math.round(vh * .79); rx = phone ? .28 : .3;
   hs = clamp(gy / 560, .5, 1.15);
-  if (!running) render();
+  if (W && !running) render();
 }
 
 /* ---------- state ---------- */
@@ -276,6 +294,7 @@ const input = { jump: false, sprintKey: false };
 let camX = -300, simT = 0;
 let started = false, running = false;
 
+W = buildWorld();
 camX = R.x - vw * rx;
 
 /* ---------- physics ---------- */
@@ -297,6 +316,30 @@ function step(dt, auto, silent) {
     R.vy -= GRAV * dt; R.y += R.vy * dt;
     if (R.y <= 0 && R.vy <= 0) { R.y = 0; R.vy = 0; R.ground = true; }
   }
+  collide(silent);
+}
+function collide(silent) {
+  for (const b of W.blocks) {
+    if (b.hit || b.missed) continue;
+    if (b.x - R.x > 200) break;
+    if (!R.ground) {
+      const half = b.size / 2 + 10, bot = 96 - 10, top = 96 + b.size + 10;
+      if (R.x + 8 > b.x - half && R.x - 8 < b.x + half && R.y + 42 > bot && R.y < top) { hitBlock(b, silent); continue; }
+    }
+    if (R.x > b.x + b.size / 2 + 34) missBlock(b, silent);
+  }
+}
+
+/* ---------- block events ---------- */
+let hits = 0;
+const countHits = () => (hits = W.blocks.reduce((n, b) => n + (b.hit ? 1 : 0), 0));
+function hitBlock(b, silent) {
+  b.hit = true; b.hitT = simT; countHits();
+  lapDot(b.r.name, 'got');
+}
+function missBlock(b, silent) {
+  b.missed = true; b.missT = simT;
+  lapDot(b.r.name, 'miss');
 }
 
 /* ---------- loop ---------- */
@@ -340,6 +383,7 @@ function render() {
   drawMountains(p.far, scroll * .2 * par, p);
   drawHills(p.mid, scroll * .5 * par);
   drawGround(T);
+  for (const b of W.blocks) drawBlock(b);
   drawRunner(T);
 }
 function drawMountains(col, off, p) {
@@ -382,6 +426,32 @@ function drawGround(T) {
     const h = hash(i * 5.3), sx = i * sp - off;
     rr(sx, gy + 16 + h * Math.max(10, vh - gy - 34), 8 + h * 16, 3, 1.5); ctx.fill();
   }
+}
+function drawBlock(b) {
+  const sx = b.x - camX; if (sx < -120 || sx > vw + 120) return;
+  const s = b.size, bob = RM ? 0 : Math.sin(simT * 2.4 + b.idx * 1.7) * 4;
+  let bump = 0; if (b.hit) { const t = simT - b.hitT; if (t < .3) bump = Math.sin(t / .3 * Math.PI) * 8; }
+  const bottom = gy - 96 - bob - bump, top = bottom - s, cx = sx, cy = bottom - s / 2;
+  ctx.globalAlpha = b.missed ? .4 : 1;
+  const gl = ctx.createRadialGradient(cx, cy, s * .2, cx, cy, s * 1.3);
+  gl.addColorStop(0, rgb(b.rgb, dark ? .55 : .42)); gl.addColorStop(1, rgb(b.rgb, 0));
+  ctx.fillStyle = gl; ctx.fillRect(cx - s * 1.3, cy - s * 1.3, s * 2.6, s * 2.6);
+  const base = b.rgb;
+  ctx.fillStyle = rgb(mix(base, [0, 0, 0], .28)); rr(cx - s / 2, top + 4, s, s, s * .24); ctx.fill();
+  ctx.fillStyle = rgb(base); rr(cx - s / 2, top, s, s, s * .24); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.22)'; rr(cx - s / 2 + 4, top + 4, s - 8, s * .32, s * .16); ctx.fill();
+  if (b.hit) check(cx, cy + 1, 10, b.L.dark ? '#1a1a1a' : '#fff');
+  else {
+    ctx.fillStyle = b.L.dark ? '#1a1a1a' : '#fff';
+    ctx.font = '500 ' + (b.L.t.length > 2 ? 13 : 15) + 'px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(b.L.t, cx, cy + 1);
+  }
+  if (b.L === LANGS.none) { ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1; rr(cx - s / 2 + .5, top + .5, s - 1, s - 1, s * .24); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+}
+function check(x, y, r, c) {
+  ctx.strokeStyle = c; ctx.lineWidth = Math.max(2, r * .32); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(x - r * .7, y); ctx.lineTo(x - r * .15, y + r * .55); ctx.lineTo(x + r * .75, y - r * .5); ctx.stroke();
 }
 function drawRunner(T) {
   const sx = R.x - camX, base = gy - R.y;
@@ -464,6 +534,14 @@ function lapData() {
   all.forEach((r, i) => { r.n = i + 1; r.split = i ? r.day - all[i - 1].day : 0; });
   return all;
 }
+function setDot(li, st) {
+  li.classList.toggle('got', st === 'got'); li.classList.toggle('miss', st === 'miss');
+  const d = li.querySelector('.gd'), s = li.querySelector('.gd-sr');
+  const msg = st === 'got' ? 'got it in the game' : st === 'miss' ? 'missed it in the game' : '';
+  if (d) d.title = msg;
+  if (s) s.textContent = msg ? ' (' + msg + ')' : '';
+}
+function lapDot(name, st) { const li = D.querySelector('.lap[data-name="' + CSS.escape(name) + '"]'); if (li) setDot(li, st); }
 function renderLaps() {
   const L = lapData(), splits = L.slice(1).map((r) => r.split);
   const min = Math.min(...splits), max = Math.max(...splits), tie = splits.filter((s) => s === min).length > 1;
@@ -473,13 +551,14 @@ function renderLaps() {
     const badges = r.name === HERO ? '<span class="badge b-streak">110-day streak</span>' : '';
     const sb = (fast ? '<span class="badge b-fast">fastest' + (tie ? ' (tied)' : '') + '</span>' : '') + (gap ? '<span class="badge b-gap">longest gap</span>' : '');
     return '<li class="lap' + (r.name === HERO ? ' hero' : '') + '" data-name="' + esc(r.name) + '">' +
-      '<span class="lap-n">' + pad(r.n) + '</span>' +
+      '<span class="lap-n"><span class="gd" aria-hidden="true"></span>' + pad(r.n) + '<span class="sr gd-sr"></span></span>' +
       '<span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/' + encodeURIComponent(r.name) + '" target="_blank" rel="noopener">' + esc(r.name.toLowerCase()) + '</a>' + badges + '</span>' +
       (r.blurb ? '<span class="lap-blurb">' + esc(r.blurb) + '</span>' : '') + '</span>' +
       '<span class="lap-meta"><span class="lap-lang"><i style="--c:' + li.c + '"></i>' + esc(li.label) + '</span><span class="lap-date">' + dayDate(r.day) + '</span></span>' +
       '<span class="lap-split">' + sb + '<span>' + (r.n === 1 ? 'start' : '+' + r.split + 'd') + '</span></span></li>';
   }).join('');
   $('#lapslist').innerHTML = html;
+  W.blocks.forEach((b) => { if (b.hit) lapDot(b.r.name, 'got'); else if (b.missed) lapDot(b.r.name, 'miss'); });
   const yc = {}; L.forEach((r) => { const y = r.date.slice(0, 4); yc[y] = (yc[y] || 0) + 1; });
   const busy = Object.entries(yc).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
   $('#facts').innerHTML = '<li><b>laps</b> ' + L.length + '</li><li><b>fastest</b> +' + min + 'd' + (tie ? ' (tied)' : '') + '</li><li><b>longest gap</b> +' + max + 'd</li><li><b>busiest year</b> ' + busy[0] + ', ' + busy[1] + ' repos</li>';
