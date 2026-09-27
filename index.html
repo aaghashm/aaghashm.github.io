@@ -242,18 +242,29 @@ onMQ(mqDark, () => { dark = isDark(); });
 const PALRAW = {
   light: {
     2022: ['#bfdcff', '#fef3e2', '#cfdcf1', '#a3badf', '#7d98c6', '#4f6a99', '#8aa6d6'],
+    2023: ['#f6e7c8', '#e9c98f', '#efd6a6', '#ddb97a', '#c4985a', '#a8783c', '#d9ad66'],
+    2024: ['#d9f2d0', '#9fd8a4', '#bfe5bd', '#84c78d', '#5aab6b', '#3a8550', '#6cc27d'],
+    2025: ['#d8c8f0', '#f2b8c6', '#e3c6e4', '#c59bd2', '#9d76b9', '#6c4d92', '#a982c6'],
+    2026: ['#ffd3a8', '#ff8a4c', '#ffbe92', '#f39563', '#d9673a', '#9d3f1d', '#f08a4f'],
   },
   dark: {
     2022: ['#0d1b2e', '#1d2c4a', '#1a2a46', '#142239', '#0f1a2d', '#0b1422', '#2d4a7a'],
+    2023: ['#2a2116', '#3b2c18', '#352816', '#2a2012', '#20180d', '#17110a', '#6b4f26'],
+    2024: ['#0f2418', '#1c3a26', '#193324', '#13291c', '#0e2015', '#0a170f', '#2f6b42'],
+    2025: ['#1e1630', '#3a1f3a', '#30203a', '#261930', '#1d1326', '#150e1c', '#6a3f78'],
+    2026: ['#2a120a', '#5a2310', '#4a1d0e', '#3a160a', '#2c1007', '#1e0a04', '#b4471c'],
   },
 };
 const KEYS = ['top', 'bot', 'far', 'mid', 'near', 'ground', 'edge'];
 const PAL = {};
 for (const m in PALRAW) { PAL[m] = {}; for (const y in PALRAW[m]) { const o = {}; PALRAW[m][y].forEach((h, i) => (o[KEYS[i]] = hex(h))); PAL[m][y] = o; } }
+const palY = (y) => clamp(y, 2022, 2026);
+const BLEND = 520;
 
 /* ---------- world ---------- */
 let W = null;
 function buildWorld() {
+  const today = todayIdx();
   const base = [];
   let x = 700, p = null;
   BASE.forEach((r, i) => {
@@ -263,11 +274,43 @@ function buildWorld() {
     b.size = 46; b.rgb = hex(b.L.c);
     base.push(b); p = b;
   });
-  const w = { base, blocks: base };
+  const sw = base[base.length - 1];
+  const w = { base, today, sDay: sw.day };
+  w.flagX = sw.x + 1200;
+  w.blocks = base;
+  W = w;
+  w.years = [{ y: 2022, x: 260 }];
+  for (let y = 2023; y <= dayYear(today); y++) { const d = parseDay(y + '-01-01'); if (d <= today) w.years.push({ y, x: dayToX(d) }); }
   return w;
 }
-function paletteAt() {
-  return (dark ? PAL.dark : PAL.light)[2022];
+function xToDay(x) {
+  const B = W.base;
+  if (x <= B[0].x) return 0;
+  for (let i = 1; i < B.length; i++) if (x < B[i].x) { const a = B[i - 1], b = B[i]; return a.day + (b.day - a.day) * (x - a.x) / (b.x - a.x); }
+  const sx = B[B.length - 1].x;
+  if (x < W.flagX) return W.sDay + (W.today - W.sDay) * (x - sx) / (W.flagX - sx);
+  return W.today;
+}
+function dayToX(d) {
+  const B = W.base;
+  if (d <= 0) return B[0].x;
+  for (let i = 1; i < B.length; i++) if (d <= B[i].day) { const a = B[i - 1], b = B[i]; return a.x + (b.x - a.x) * (d - a.day) / (b.day - a.day); }
+  const sx = B[B.length - 1].x;
+  return sx + (W.flagX - sx) * clamp((d - W.sDay) / Math.max(1, W.today - W.sDay), 0, 1);
+}
+function paletteAt(x) {
+  const P = dark ? PAL.dark : PAL.light;
+  for (const yb of W.years) {
+    if (yb.y === 2022) continue;
+    const dd = x - yb.x;
+    if (Math.abs(dd) < BLEND) {
+      const a = P[palY(yb.y - 1)], b = P[palY(yb.y)], t = smooth((dd + BLEND) / (2 * BLEND));
+      const o = {};
+      for (const k of KEYS) o[k] = mix(a[k], b[k], t);
+      return o;
+    }
+  }
+  return P[palY(dayYear(xToDay(x)))];
 }
 
 /* ---------- dom refs ---------- */
@@ -293,6 +336,7 @@ const R = { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, a
 const input = { jump: false, sprintKey: false };
 let camX = -300, simT = 0;
 let started = false, running = false;
+const stars = Array.from({ length: 90 }, (_, i) => ({ fx: hash(i * 3.3), fy: Math.pow(hash(i * 7.1), 1.4) * .62, r: .5 + hash(i * 1.9) * 1.3, ph: hash(i * 5.7) * 6.28 }));
 
 W = buildWorld();
 camX = R.x - vw * rx;
@@ -375,16 +419,70 @@ function themeInk() {
     : { ink: '#1f1f27', back: '#4a4a55', eye: '#ffffff', board: 'rgba(255,255,255,.9)', boardLine: 'rgba(0,0,0,.08)', text: '#1a1a1a', post: '#6a5340', faint: 'rgba(26,26,26,.07)', tex: 'rgba(0,0,0,.07)' };
 }
 function render() {
-  const T = themeInk(), p = paletteAt(), scroll = camX, par = RM ? 0 : 1;
+  const T = themeInk(), p = paletteAt(R.x), scroll = camX, par = RM ? 0 : 1;
   ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
   const g = ctx.createLinearGradient(0, 0, 0, gy);
   g.addColorStop(0, rgb(p.top)); g.addColorStop(1, rgb(p.bot));
   ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
+  if (dark) drawStars(scroll * par); else drawClouds(scroll * .08 * par);
+  drawSun(p);
+  drawYears(T);
   drawMountains(p.far, scroll * .2 * par, p);
   drawHills(p.mid, scroll * .5 * par);
+  drawNear(p, scroll * .8 * par, T);
   drawGround(T);
   for (const b of W.blocks) drawBlock(b);
   drawRunner(T);
+}
+function drawStars(off) {
+  const span = vw * 1.25;
+  for (const s of stars) {
+    let x = (s.fx * span - off * .03) % span; if (x < 0) x += span;
+    const a = RM ? .7 : .35 + .65 * Math.abs(Math.sin(simT * 1.3 + s.ph));
+    ctx.fillStyle = 'rgba(255,250,235,' + a.toFixed(2) + ')';
+    ctx.fillRect(x, s.fy * gy, s.r, s.r);
+  }
+}
+function drawClouds(off) {
+  const sp = 460, i0 = Math.floor(off / sp) - 1, i1 = Math.ceil((off + vw) / sp) + 1;
+  ctx.fillStyle = 'rgba(255,255,255,.72)';
+  for (let i = i0; i <= i1; i++) {
+    if (hash(i * 9.1) < .45) continue;
+    const x = i * sp + hash(i * 3.7) * 220 - off, y = gy * (.12 + hash(i * 4.2) * .26), s = .7 + hash(i * 6.6) * .8;
+    ctx.beginPath();
+    ctx.arc(x, y, 16 * s, Math.PI, 0); ctx.arc(x + 24 * s, y - 6 * s, 22 * s, Math.PI, 0); ctx.arc(x + 50 * s, y, 15 * s, Math.PI, 0);
+    ctx.lineTo(x + 65 * s, y + 7 * s); ctx.arcTo(x + 65 * s, y + 14 * s, x + 58 * s, y + 14 * s, 7 * s); ctx.lineTo(x - 9 * s, y + 14 * s); ctx.arcTo(x - 16 * s, y + 14 * s, x - 16 * s, y + 7 * s, 7 * s);
+    ctx.closePath(); ctx.fill();
+  }
+}
+function drawSun(p) {
+  const x = vw * (phone ? .8 : .74), y = gy * (phone ? .66 : .3);
+  if (dark) {
+    ctx.fillStyle = 'rgba(255,240,215,.08)'; ctx.beginPath(); ctx.arc(x, y, 46, 0, 7); ctx.fill();
+    ctx.fillStyle = '#f2e8d2'; ctx.beginPath(); ctx.arc(x, y, 20, 0, 7); ctx.fill();
+    ctx.fillStyle = rgb(mix(p.top, p.bot, .3)); ctx.beginPath(); ctx.arc(x + 9, y - 5, 17, 0, 7); ctx.fill();
+  } else {
+    const c = mix(p.bot, [255, 255, 255], .55);
+    ctx.fillStyle = rgb(c, .45); ctx.beginPath(); ctx.arc(x, y, 64, 0, 7); ctx.fill();
+    ctx.fillStyle = rgb(c, .95); ctx.beginPath(); ctx.arc(x, y, 38, 0, 7); ctx.fill();
+  }
+}
+function drawYears(T) {
+  const size = Math.min(vh * .46, vw * .42);
+  ctx.font = '700 ' + size.toFixed(0) + 'px ' + SANS;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  if (RM) { const y = dayYear(xToDay(R.x)); ctx.fillStyle = T.faint; ctx.fillText(String(y), vw * .5, gy - 24); return; }
+  for (let i = 0; i < W.years.length; i++) {
+    const yb = W.years[i], next = W.years[i + 1];
+    const d = R.x - yb.x;
+    if (d < -2600 || (next && R.x > next.x + 400)) continue;
+    const a = clamp(1 - Math.abs(d) / (next ? Math.max(1400, (next.x - yb.x) * .9) : 2600), 0, 1) * (d < 0 ? clamp(1 + d / 1400, 0, 1) : 1);
+    if (a <= 0) continue;
+    const x = vw * .56 - d * .32;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = T.faint; ctx.fillText(String(yb.y), x, gy - 24);
+    ctx.globalAlpha = 1;
+  }
 }
 function drawMountains(col, off, p) {
   const sp = 190, i0 = Math.floor(off / sp) - 1, i1 = Math.ceil((off + vw) / sp) + 1;
@@ -416,10 +514,36 @@ function drawHills(col, off) {
   }
   ctx.lineTo(vw + 20, gy); ctx.closePath(); ctx.fill();
 }
+function drawNear(p, off, T) {
+  const sp = 110, i0 = Math.floor(off / sp) - 1, i1 = Math.ceil((off + vw) / sp) + 1;
+  const col = rgb(p.near), dk = rgb(mix(p.near, [0, 0, 0], .18));
+  for (let i = i0; i <= i1; i++) {
+    const h = hash(i * 1.7);
+    const sx = i * sp + hash(i * 2.3) * 70 - off;
+    const wx = RM ? R.x : (sx + off - rx * vw) / .8 + rx * vw;
+    if (h < .38) continue;
+    const y = dayYear(xToDay(wx)), k = hash(i * 4.9), s = .8 + hash(i * 8.1) * .5;
+    ctx.fillStyle = col;
+    if (y === 2023) { if (k < .5) cactus(sx, s, col); else rock(sx, s, dk); }
+    else if (y === 2024) { if (k < .55) tree(sx, s, col, dk); else bush(sx, s, col); }
+    else if (y === 2025) { if (k < .5) pine(sx, s, col); else bush(sx, s, col); }
+    else if (y >= 2026) { if (k < .4) rock(sx, s, dk); else tuft(sx, s, col); }
+    else { if (k < .5) bush(sx, s, col); else tuft(sx, s, col); }
+  }
+}
+function bush(x, s, c) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, gy, 13 * s, Math.PI, 0); ctx.arc(x + 14 * s, gy, 17 * s, Math.PI, 0); ctx.arc(x + 30 * s, gy, 11 * s, Math.PI, 0); ctx.fill(); }
+function tuft(x, s, c) { ctx.strokeStyle = c; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.beginPath(); for (let j = -2; j <= 2; j++) { ctx.moveTo(x + j * 3, gy); ctx.lineTo(x + j * 5.5, gy - (12 - Math.abs(j) * 3) * s); } ctx.stroke(); }
+function tree(x, s, c, d) { ctx.fillStyle = d; ctx.fillRect(x - 2.5, gy - 26 * s, 5, 26 * s); ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, gy - 34 * s, 17 * s, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(x - 9 * s, gy - 25 * s, 11 * s, 0, 7); ctx.fill(); }
+function pine(x, s, c) { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x, gy - 56 * s); ctx.lineTo(x + 15 * s, gy - 4); ctx.lineTo(x - 15 * s, gy - 4); ctx.closePath(); ctx.fill(); ctx.fillRect(x - 2, gy - 6, 4, 6); }
+function cactus(x, s, c) { ctx.fillStyle = c; rr(x - 4 * s, gy - 34 * s, 8 * s, 34 * s, 4 * s); ctx.fill(); rr(x - 13 * s, gy - 24 * s, 6 * s, 14 * s, 3 * s); ctx.fill(); rr(x - 13 * s, gy - 13 * s, 12 * s, 5 * s, 2.5 * s); ctx.fill(); rr(x + 7 * s, gy - 28 * s, 6 * s, 12 * s, 3 * s); ctx.fill(); rr(x + 1 * s, gy - 19 * s, 12 * s, 5 * s, 2.5 * s); ctx.fill(); }
+function rock(x, s, c) { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x - 12 * s, gy); ctx.lineTo(x - 7 * s, gy - 9 * s); ctx.lineTo(x + 3 * s, gy - 12 * s); ctx.lineTo(x + 12 * s, gy - 4 * s); ctx.lineTo(x + 14 * s, gy); ctx.closePath(); ctx.fill(); }
 function drawGround(T) {
-  const p = paletteAt();
-  ctx.fillStyle = rgb(p.ground); ctx.fillRect(0, gy, vw, vh - gy);
-  ctx.fillStyle = rgb(p.edge); ctx.fillRect(0, gy, vw, 5);
+  const x0 = Math.floor(camX / 40) * 40;
+  for (let wx = x0; wx < camX + vw + 40; wx += 40) {
+    const p = paletteAt(wx + 20), sx = wx - camX;
+    ctx.fillStyle = rgb(p.ground); ctx.fillRect(sx - .5, gy, 41, vh - gy);
+    ctx.fillStyle = rgb(p.edge); ctx.fillRect(sx - .5, gy, 41, 5);
+  }
   const off = camX, sp = 52, i0 = Math.floor(off / sp);
   ctx.fillStyle = T.tex;
   for (let i = i0; i < i0 + vw / sp + 2; i++) {
