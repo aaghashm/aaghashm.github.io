@@ -76,6 +76,21 @@ a{color:inherit}
 .title h1{font:700 clamp(38px,7vw,124px)/.92 var(--sans);letter-spacing:-.05em;margin:0;text-wrap:balance}
 .title h1 em{font-style:normal;color:var(--accent-ink);display:block}
 
+/* repo card */
+.rcard{position:absolute;z-index:5;top:168px;right:30px;width:310px;padding:16px 18px 18px;border-radius:16px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);transform:translateX(calc(100% + 40px));opacity:0;visibility:hidden;transition:transform .5s var(--ease),opacity .5s var(--ease),visibility 0s .5s;overflow:hidden}
+.rcard.on{transform:none;opacity:1;visibility:visible;transition:transform .5s var(--ease),opacity .5s var(--ease)}
+.rc-top{display:flex;align-items:center;gap:8px;font:500 12px/1 var(--mono);color:var(--muted)}
+.rc-top .ld{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.rc-top .rc-lap{margin-left:auto}
+.rc-name{font:700 22px/1.15 var(--sans);letter-spacing:-.02em;margin:10px 0 4px;word-break:break-word}
+.rc-meta{font:500 12px/1.4 var(--mono);color:var(--muted)}
+.rc-blurb{margin:10px 0 0;font-size:15px;line-height:1.45}
+.rc-link{display:inline-block;margin-top:12px;font:500 13px/1 var(--mono);color:var(--accent-ink);text-decoration:none}
+.rc-link:hover{text-decoration:underline}
+.rc-bar{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--c);transform-origin:left;transform:scaleX(0)}
+.rcard.on .rc-bar{animation:drain 4s linear forwards}
+@keyframes drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
 /* ---------- sections ---------- */
 section{padding:112px 0 0}
 .eyebrow{font:500 12px/1 var(--mono);letter-spacing:.1em;color:var(--accent-ink);margin:0 0 14px;display:flex;align-items:center;gap:10px}
@@ -148,6 +163,15 @@ h2.big:focus{outline:none}
     <h1>aaghash murugesan. <em>still running.</em></h1>
   </div>
 
+  <div class="rcard" id="rcard" aria-hidden="true">
+    <div class="rc-top"><span class="ld"></span><span class="rc-lang"></span><span class="rc-lap"></span></div>
+    <div class="rc-name"></div>
+    <div class="rc-meta"></div>
+    <p class="rc-blurb"></p>
+    <a class="rc-link" href="https://github.com/aaghashm" target="_blank" rel="noopener" tabindex="-1">on github →</a>
+    <span class="rc-bar"></span>
+  </div>
+
 </header>
 
 <main>
@@ -170,6 +194,8 @@ h2.big:focus{outline:none}
     <span class="ph"><i aria-hidden="true"></i>built on phoenix</span>
   </div>
 </footer>
+
+<div class="sr" id="announce" aria-live="polite"></div>
 
 <script>
 (() => {
@@ -332,16 +358,18 @@ function resize() {
 }
 
 /* ---------- state ---------- */
-const R = { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, phase: 0 };
+const R = { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, phase: 0, sqT: 0, sqX: 1, sqY: 1 };
 const input = { jump: false, sprintKey: false };
 let camX = -300, simT = 0;
 let started = false, running = false;
+const parts = [];
 const stars = Array.from({ length: 90 }, (_, i) => ({ fx: hash(i * 3.3), fy: Math.pow(hash(i * 7.1), 1.4) * .62, r: .5 + hash(i * 1.9) * 1.3, ph: hash(i * 5.7) * 6.28 }));
 
 W = buildWorld();
 camX = R.x - vw * rx;
 
 /* ---------- physics ---------- */
+function squash(x, y) { if (RM) return; R.sqX = x; R.sqY = y; R.sqT = .12; }
 function step(dt, auto, silent) {
   simT += dt;
   const sprint = !auto && input.sprintKey;
@@ -352,13 +380,14 @@ function step(dt, auto, silent) {
   R.buffer -= dt;
   if (R.buffer > 0 && R.coyote > 0) {
     R.vy = JUMPV; R.ground = false; R.coyote = 0; R.buffer = 0; R.cut = false; R.air = 0;
+    if (!silent) squash(.88, 1.12);
   }
   if (!R.ground) {
     R.air += dt;
     const held = auto || input.jump;
     if (!held && !R.cut && R.vy > 0 && R.air > .06) { R.vy *= .45; R.cut = true; }
     R.vy -= GRAV * dt; R.y += R.vy * dt;
-    if (R.y <= 0 && R.vy <= 0) { R.y = 0; R.vy = 0; R.ground = true; }
+    if (R.y <= 0 && R.vy <= 0) { R.y = 0; R.vy = 0; R.ground = true; if (!silent) { squash(1.18, .82); dust(); } }
   }
   collide(silent);
 }
@@ -379,11 +408,26 @@ let hits = 0;
 const countHits = () => (hits = W.blocks.reduce((n, b) => n + (b.hit ? 1 : 0), 0));
 function hitBlock(b, silent) {
   b.hit = true; b.hitT = simT; countHits();
+  if (!silent) { burst(b); showCard(b); }
   lapDot(b.r.name, 'got');
 }
 function missBlock(b, silent) {
   b.missed = true; b.missT = simT;
   lapDot(b.r.name, 'miss');
+}
+
+/* ---------- particles ---------- */
+function burst(b) {
+  if (RM) return;
+  const cy = 96 + b.size / 2;
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2 + hash(i + simT) * .4, s = 140 + hash(i * 3 + simT) * 220;
+    parts.push({ x: b.x, y: cy, vx: Math.cos(a) * s + 80, vy: Math.sin(a) * s + 120, life: .7 + hash(i) * .4, t: 0, c: b.rgb, s: 3 + hash(i * 9) * 3.5, sq: i % 3 === 0 });
+  }
+}
+function dust() {
+  if (RM) return;
+  for (let i = 0; i < 5; i++) parts.push({ x: R.x - 4 + i * 2, y: 2, vx: -60 - hash(i + simT) * 80, vy: 30 + hash(i * 2 + simT) * 60, life: .35, t: 0, c: dark ? [255, 255, 255] : [60, 50, 40], s: 2 + hash(i) * 2, dust: 1 });
 }
 
 /* ---------- loop ---------- */
@@ -406,6 +450,12 @@ function frame(now) {
 }
 function animate(dt) {
   R.phase += dt * Math.PI * 2 * 9 * Math.sqrt(R.speed / RUN);
+  if (R.sqT > 0) R.sqT -= dt;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i]; p.t += dt;
+    if (p.t > p.life) { parts.splice(i, 1); continue; }
+    p.vy -= (p.dust ? 0 : 1300) * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+  }
 }
 
 /* ---------- drawing ---------- */
@@ -433,6 +483,7 @@ function render() {
   drawGround(T);
   for (const b of W.blocks) drawBlock(b);
   drawRunner(T);
+  drawParts();
 }
 function drawStars(off) {
   const span = vw * 1.25;
@@ -583,6 +634,8 @@ function drawRunner(T) {
   ctx.fillStyle = 'rgba(0,0,0,' + (.2 * k).toFixed(3) + ')';
   ctx.beginPath(); ctx.ellipse(sx, gy + 2, 13 * k, 3 * k, 0, 0, 7); ctx.fill();
   ctx.save(); ctx.translate(sx, base);
+  let sqx = 1, sqy = 1; if (R.sqT > 0 && !RM) { const k = R.sqT / .12; sqx = lerp(1, R.sqX, k); sqy = lerp(1, R.sqY, k); }
+  ctx.scale(sqx, sqy);
   const air = !R.ground, ph = R.phase, fast = R.speed > 420;
   const bob = air ? 0 : -Math.abs(Math.sin(ph)) * 1.6;
   ctx.translate(0, bob);
@@ -607,6 +660,15 @@ function drawRunner(T) {
   else { leg(sw, T.ink, Math.max(0, -Math.cos(ph)) * 1.3); arm(-sw * .9, T.ink); }
   ctx.restore();
 }
+function drawParts() {
+  for (const p of parts) {
+    const a = 1 - p.t / p.life;
+    ctx.fillStyle = rgb(p.c, (p.dust ? .3 : 1) * a);
+    const x = p.x - camX, y = gy - p.y;
+    if (p.sq) { ctx.save(); ctx.translate(x, y); ctx.rotate(p.t * 8); ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s); ctx.restore(); }
+    else { ctx.beginPath(); ctx.arc(x, y, p.s * (p.dust ? 1 + p.t * 3 : 1) / 2, 0, 7); ctx.fill(); }
+  }
+}
 
 /* ---------- clock + hud ---------- */
 function clockMs() {
@@ -623,6 +685,26 @@ function updateClock() {
   setT(el.cy, 'y', String(y)); setT(el.cd, 'd', String(d));
   setT(el.ct, 't', pad(Math.floor(t / 3.6e6)) + ':' + pad(Math.floor(t / 6e4) % 60) + ':' + pad(Math.floor(t / 1e3) % 60));
   setT(el.cc, 'c', '.' + pad(Math.floor(t / 10) % 100));
+}
+
+/* ---------- ui bits ---------- */
+const announceEl = $('#announce');
+function announce(msg) { announceEl.textContent = ''; setTimeout(() => (announceEl.textContent = msg), 60); }
+const card = $('#rcard');
+let cardT = 0;
+function splitOf(name) { const L = lapData(); const r = L.find((x) => x.name === name); return r ? r : null; }
+function showCard(b) {
+  const info = splitOf(b.r.name);
+  card.style.setProperty('--c', b.L.c);
+  card.querySelector('.rc-lang').textContent = b.L.label;
+  card.querySelector('.rc-lap').textContent = info ? 'lap ' + pad(info.n) : '';
+  card.querySelector('.rc-name').textContent = b.r.name.toLowerCase();
+  card.querySelector('.rc-meta').textContent = dayDate(b.day) + (info && info.n > 1 ? ' · +' + info.split + 'd' : ' · start');
+  const bl = card.querySelector('.rc-blurb'); bl.textContent = b.r.blurb || ''; bl.hidden = !b.r.blurb;
+  card.querySelector('.rc-link').href = 'https://github.com/aaghashm/' + encodeURIComponent(b.r.name);
+  card.classList.remove('on'); void card.offsetWidth; card.classList.add('on');
+  clearTimeout(cardT); cardT = setTimeout(() => card.classList.remove('on'), 4000);
+  announce('got lap ' + (info ? info.n : '') + ': ' + b.r.name.toLowerCase() + ', ' + b.L.label + ', ' + dayDate(b.day) + '.');
 }
 
 /* ---------- input ---------- */
