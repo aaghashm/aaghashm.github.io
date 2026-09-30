@@ -304,6 +304,23 @@ function buildWorld() {
   const w = { base, today, sDay: sw.day };
   w.flagX = sw.x + 1200;
   w.blocks = base;
+  // quiet stretches, posts and pits
+  w.posts = []; w.pits = []; w.quiet = [];
+  for (let i = 1; i < base.length; i++) {
+    const a = base[i - 1], b = base[i], gap = b.day - a.day;
+    if (gap < 300) continue;
+    w.quiet.push([a.x + 60, b.x - 60]);
+    const ps = [];
+    for (let k = 100; k < gap; k += 100) ps.push({ x: a.x + (b.x - a.x) * k / gap, label: 'day ' + k });
+    w.posts.push(...ps);
+    const mids = [];
+    if (ps.length >= 2) mids.push((ps[0].x + ps[1].x) / 2);
+    if (ps.length >= 4) mids.push((ps[2].x + ps[3].x) / 2);
+    else if (ps.length) mids.push((ps[ps.length - 1].x + b.x) / 2);
+    mids.forEach((m) => w.pits.push({ x: m - 55, w: 110 }));
+  }
+  const cs = base.find((b) => b.r.name === 'CODESOFT');
+  w.checkpoint = cs ? cs.x - 82 : null;
   W = w;
   w.years = [{ y: 2022, x: 260 }];
   for (let y = 2023; y <= dayYear(today); y++) { const d = parseDay(y + '-01-01'); if (d <= today) w.years.push({ y, x: dayToX(d) }); }
@@ -338,6 +355,9 @@ function paletteAt(x) {
   }
   return P[palY(dayYear(xToDay(x)))];
 }
+const inQuiet = (x) => W.quiet.some((q) => x > q[0] && x < q[1]);
+const overPit = (x) => W.pits.some((p) => x > p.x + 8 && x < p.x + p.w - 8);
+const pitAt = (x) => W.pits.find((p) => x > p.x - 4 && x < p.x + p.w + 4);
 
 /* ---------- dom refs ---------- */
 const stage = $('#stage'), cv = $('#game'), ctx = cv.getContext('2d');
@@ -358,7 +378,7 @@ function resize() {
 }
 
 /* ---------- state ---------- */
-const R = { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, phase: 0, sqT: 0, sqX: 1, sqY: 1 };
+const R = { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, phase: 0, pit: null, bubble: 0, sqT: 0, sqX: 1, sqY: 1 };
 const input = { jump: false, sprintKey: false };
 let camX = -300, simT = 0;
 let started = false, running = false;
@@ -375,6 +395,8 @@ function step(dt, auto, silent) {
   const sprint = !auto && input.sprintKey;
   const target = sprint ? SPRINT : RUN;
   R.speed += (target - R.speed) * Math.min(1, dt * 7);
+  if (R.bubble > 0) R.bubble -= dt;
+  if (R.pit) { pitStep(dt); return; }
   R.x += R.speed * dt;
   if (R.ground) R.coyote = COYOTE; else R.coyote -= dt;
   R.buffer -= dt;
@@ -387,15 +409,34 @@ function step(dt, auto, silent) {
     const held = auto || input.jump;
     if (!held && !R.cut && R.vy > 0 && R.air > .06) { R.vy *= .45; R.cut = true; }
     R.vy -= GRAV * dt; R.y += R.vy * dt;
-    if (R.y <= 0 && R.vy <= 0) { R.y = 0; R.vy = 0; R.ground = true; if (!silent) { squash(1.18, .82); dust(); } }
-  }
+    if (R.y <= 0 && R.vy <= 0) {
+      if (overPit(R.x)) { if (R.y < -10) startPit(silent); }
+      else { R.y = 0; R.vy = 0; R.ground = true; if (!silent) { squash(1.18, .82); dust(); } }
+    }
+  } else if (overPit(R.x)) { R.ground = false; R.vy = 0; R.air = 1; R.cut = true; }
   collide(silent);
+}
+function startPit(silent) {
+  const p = pitAt(R.x) || { x: R.x - 55, w: 110 };
+  R.pit = { t: 0, x0: R.x, y0: R.y, x1: p.x + p.w + 12 };
+  R.vy = 0; R.ground = false;
+  if (!silent) R.bubble = 1.3;
+}
+function pitStep(dt) {
+  const P = R.pit; P.t += dt;
+  if (P.t < .2) { const k = P.t / .2; R.y = lerp(P.y0, -54, ease(k)); R.x = P.x0 + 14 * k; }
+  else {
+    const k = clamp((P.t - .2) / .4, 0, 1);
+    R.x = lerp(P.x0 + 14, P.x1, ease(k));
+    R.y = lerp(-54, 0, ease(k)) + Math.sin(k * Math.PI) * 22;
+  }
+  if (P.t >= .6) { R.pit = null; R.y = 0; R.vy = 0; R.ground = true; R.coyote = COYOTE; squash(1.15, .85); }
 }
 function collide(silent) {
   for (const b of W.blocks) {
     if (b.hit || b.missed) continue;
     if (b.x - R.x > 200) break;
-    if (!R.ground) {
+    if (!R.ground && !R.pit) {
       const half = b.size / 2 + 10, bot = 96 - 10, top = 96 + b.size + 10;
       if (R.x + 8 > b.x - half && R.x - 8 < b.x + half && R.y + 42 > bot && R.y < top) { hitBlock(b, silent); continue; }
     }
@@ -481,9 +522,12 @@ function render() {
   drawHills(p.mid, scroll * .5 * par);
   drawNear(p, scroll * .8 * par, T);
   drawGround(T);
+  for (const ps of W.posts) drawPost(ps.x, ps.label, T, 1);
+  if (W.checkpoint != null) drawCheckpoint(T);
   for (const b of W.blocks) drawBlock(b);
   drawRunner(T);
   drawParts();
+  drawBubble(T);
 }
 function drawStars(off) {
   const span = vw * 1.25;
@@ -572,10 +616,11 @@ function drawNear(p, off, T) {
     const h = hash(i * 1.7);
     const sx = i * sp + hash(i * 2.3) * 70 - off;
     const wx = RM ? R.x : (sx + off - rx * vw) / .8 + rx * vw;
-    if (h < .38) continue;
+    const quiet = inQuiet(wx);
+    if (h < (quiet ? .78 : .38)) continue;
     const y = dayYear(xToDay(wx)), k = hash(i * 4.9), s = .8 + hash(i * 8.1) * .5;
     ctx.fillStyle = col;
-    if (y === 2023) { if (k < .5) cactus(sx, s, col); else rock(sx, s, dk); }
+    if (quiet || y === 2023) { if (k < .5) cactus(sx, s, col); else rock(sx, s, dk); }
     else if (y === 2024) { if (k < .55) tree(sx, s, col, dk); else bush(sx, s, col); }
     else if (y === 2025) { if (k < .5) pine(sx, s, col); else bush(sx, s, col); }
     else if (y >= 2026) { if (k < .4) rock(sx, s, dk); else tuft(sx, s, col); }
@@ -601,6 +646,41 @@ function drawGround(T) {
     const h = hash(i * 5.3), sx = i * sp - off;
     rr(sx, gy + 16 + h * Math.max(10, vh - gy - 34), 8 + h * 16, 3, 1.5); ctx.fill();
   }
+  for (const pt of W.pits) {
+    const sx = pt.x - camX;
+    if (sx > vw || sx + pt.w < 0) continue;
+    const p = paletteAt(pt.x);
+    const gr = ctx.createLinearGradient(0, gy, 0, vh);
+    gr.addColorStop(0, rgb(mix(p.ground, [0, 0, 0], .55))); gr.addColorStop(1, rgb(mix(p.ground, [0, 0, 0], .8)));
+    ctx.fillStyle = gr; ctx.fillRect(sx, gy, pt.w, vh - gy);
+    ctx.fillStyle = rgb(mix(p.ground, [0, 0, 0], .3));
+    ctx.fillRect(sx, gy, 4, vh - gy); ctx.fillRect(sx + pt.w - 4, gy, 4, vh - gy);
+  }
+}
+function board(cx, by, text, T, font, align) {
+  ctx.font = font;
+  const w = ctx.measureText(text).width + 16, h = 22;
+  const x = align === 'right' ? cx - w : align === 'left' ? cx : cx - w / 2;
+  ctx.fillStyle = T.board; rr(x, by - h, w, h, 6); ctx.fill();
+  ctx.strokeStyle = T.boardLine; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = T.text; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, x + 8, by - h / 2 + .5);
+  return w;
+}
+function drawPost(x, label, T, alpha) {
+  const sx = x - camX; if (sx < -80 || sx > vw + 80) return;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = T.post; ctx.fillRect(sx - 1.5, gy - 30, 3, 30);
+  board(sx, gy - 28, label, T, '500 11px ' + MONO, 'center');
+  ctx.globalAlpha = 1;
+}
+function drawCheckpoint(T) {
+  const sx = W.checkpoint - camX; if (sx < -300 || sx > vw + 60) return;
+  ctx.fillStyle = T.post; ctx.fillRect(sx - 1.5, gy - 92, 3, 92);
+  const wave = RM ? 0 : Math.sin(simT * 5) * 3;
+  ctx.fillStyle = '#f5a623';
+  ctx.beginPath(); ctx.moveTo(sx + 1.5, gy - 92); ctx.quadraticCurveTo(sx + 16, gy - 88 + wave, sx + 30, gy - 83 + wave); ctx.lineTo(sx + 1.5, gy - 72); ctx.closePath(); ctx.fill();
+  board(sx - 6, gy - 52, 'checkpoint · codsoft internship', T, '500 11px ' + MONO, 'right');
 }
 function drawBlock(b) {
   const sx = b.x - camX; if (sx < -120 || sx > vw + 120) return;
@@ -630,13 +710,15 @@ function check(x, y, r, c) {
 }
 function drawRunner(T) {
   const sx = R.x - camX, base = gy - R.y;
-  const k = 1 - Math.min(Math.max(0, R.y) / 220, .65);
-  ctx.fillStyle = 'rgba(0,0,0,' + (.2 * k).toFixed(3) + ')';
-  ctx.beginPath(); ctx.ellipse(sx, gy + 2, 13 * k, 3 * k, 0, 0, 7); ctx.fill();
+  if (!R.pit) {
+    const k = 1 - Math.min(Math.max(0, R.y) / 220, .65);
+    ctx.fillStyle = 'rgba(0,0,0,' + (.2 * k).toFixed(3) + ')';
+    ctx.beginPath(); ctx.ellipse(sx, gy + 2, 13 * k, 3 * k, 0, 0, 7); ctx.fill();
+  }
   ctx.save(); ctx.translate(sx, base);
   let sqx = 1, sqy = 1; if (R.sqT > 0 && !RM) { const k = R.sqT / .12; sqx = lerp(1, R.sqX, k); sqy = lerp(1, R.sqY, k); }
   ctx.scale(sqx, sqy);
-  const air = !R.ground, ph = R.phase, fast = R.speed > 420;
+  const air = !R.ground && !R.pit, ph = R.phase, fast = R.speed > 420;
   const bob = air ? 0 : -Math.abs(Math.sin(ph)) * 1.6;
   ctx.translate(0, bob);
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -650,6 +732,7 @@ function drawRunner(T) {
   };
   const sw = Math.sin(ph) * (fast ? .95 : .8);
   if (air) { leg(-.5, T.back, .9); arm(.9, T.back); }
+  else if (R.pit) { leg(.6, T.back, -.3); arm(2.4, T.back); }
   else { leg(-sw, T.back, Math.max(0, Math.cos(ph)) * 1.3); arm(sw * .9, T.back); }
   ctx.save(); ctx.translate(0, -12); ctx.rotate(air ? -.05 : fast ? .2 : .1);
   ctx.fillStyle = T.ink; rr(-6.5, -16, 13, 18, 6.5); ctx.fill();
@@ -657,6 +740,7 @@ function drawRunner(T) {
   ctx.fillStyle = T.eye; ctx.beginPath(); ctx.ellipse(5, -23, 1.4, 1.9, 0, 0, 7); ctx.fill();
   ctx.restore();
   if (air) { leg(.8, T.ink, -.2); arm(-.7, T.ink); }
+  else if (R.pit) { leg(-.3, T.ink, .4); arm(2.9, T.ink); }
   else { leg(sw, T.ink, Math.max(0, -Math.cos(ph)) * 1.3); arm(-sw * .9, T.ink); }
   ctx.restore();
 }
@@ -668,6 +752,15 @@ function drawParts() {
     if (p.sq) { ctx.save(); ctx.translate(x, y); ctx.rotate(p.t * 8); ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s); ctx.restore(); }
     else { ctx.beginPath(); ctx.arc(x, y, p.s * (p.dust ? 1 + p.t * 3 : 1) / 2, 0, 7); ctx.fill(); }
   }
+}
+function drawBubble(T) {
+  if (R.bubble <= 0) return;
+  const a = clamp(R.bubble / .25, 0, 1), x = R.x - camX + 10, y = gy - Math.max(R.y, -20) - 62;
+  ctx.globalAlpha = a; ctx.font = '700 14px ' + SANS; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = T.board; rr(x - 22, y - 13, 44, 26, 10); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x - 8, y + 12); ctx.lineTo(x - 14, y + 20); ctx.lineTo(x - 1, y + 12); ctx.fill();
+  ctx.fillStyle = T.text; ctx.fillText('nah.', x, y + .5);
+  ctx.globalAlpha = 1;
 }
 
 /* ---------- clock + hud ---------- */
