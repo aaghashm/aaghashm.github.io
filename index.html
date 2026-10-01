@@ -91,6 +91,12 @@ a{color:inherit}
 .rcard.on .rc-bar{animation:drain 4s linear forwards}
 @keyframes drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 
+/* toasts, pops */
+.banner{position:absolute;left:0;right:0;top:34%;z-index:4;text-align:center;pointer-events:none;opacity:0;font:700 clamp(34px,6vw,84px)/1 var(--sans);letter-spacing:-.045em;color:#fff;text-shadow:0 2px 0 rgba(120,40,0,.35),0 10px 40px rgba(255,120,40,.55);padding:0 16px}
+.banner small{display:block;font:500 13px/1 var(--mono);letter-spacing:.06em;margin-top:14px;opacity:.9;text-shadow:none;color:#fff}
+.banner.on{animation:rise 3.2s var(--ease) forwards}
+@keyframes rise{0%{opacity:0;transform:translateY(60px)}15%{opacity:1;transform:none}80%{opacity:1;transform:translateY(-6px)}100%{opacity:0;transform:translateY(-30px)}}
+
 /* ---------- sections ---------- */
 section{padding:112px 0 0}
 .eyebrow{font:500 12px/1 var(--mono);letter-spacing:.1em;color:var(--accent-ink);margin:0 0 14px;display:flex;align-items:center;gap:10px}
@@ -172,6 +178,8 @@ h2.big:focus{outline:none}
     <span class="rc-bar"></span>
   </div>
 
+  <div class="banner" id="banner" aria-hidden="true">110 days, no stops.<small>28 jun to 15 oct 2026</small></div>
+
 </header>
 
 <main>
@@ -205,6 +213,7 @@ const $ = (s) => D.querySelector(s);
 const MON = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 const DAY0 = Date.UTC(2022, 8, 19);
 const STEP = 1 / 120, RUN = 300, SPRINT = 540, GRAV = 2600, JUMPV = 900, COYOTE = .09, BUFFER = .12;
+const STREAK_START = '2026-06-28', STREAK = 110, TILE = 28;
 const SANS = "'Space Grotesk','SG Fallback',system-ui,sans-serif", MONO = "'JetBrains Mono','JB Fallback',ui-monospace,Menlo,monospace";
 
 const LANGS = {
@@ -283,26 +292,27 @@ const PALRAW = {
 };
 const KEYS = ['top', 'bot', 'far', 'mid', 'near', 'ground', 'edge'];
 const PAL = {};
-for (const m in PALRAW) { PAL[m] = {}; for (const y in PALRAW[m]) { const o = {}; PALRAW[m][y].forEach((h, i) => (o[KEYS[i]] = hex(h))); PAL[m][y] = o; } }
+for (const m in PALRAW) { PAL[m] = {}; for (const y in PALRAW[m]) { const o = { ember: +y >= 2026 ? 1 : 0 }; PALRAW[m][y].forEach((h, i) => (o[KEYS[i]] = hex(h))); PAL[m][y] = o; } }
 const palY = (y) => clamp(y, 2022, 2026);
 const BLEND = 520;
 
 /* ---------- world ---------- */
 let W = null;
 function buildWorld() {
-  const today = todayIdx();
+  const today = Math.max(todayIdx(), parseDay(STREAK_START) + STREAK - 1);
   const base = [];
   let x = 700, p = null;
   BASE.forEach((r, i) => {
     const day = parseDay(r.date);
     if (p) x += Math.max(280, 120 * Math.sqrt(day - p.day));
-    const b = { r, day, x, idx: i, L: langInfo(r.lang), hit: false, missed: false, hitT: -9, missT: -9 };
-    b.size = 46; b.rgb = hex(b.L.c);
+    const b = { r, day, x, idx: i, L: langInfo(r.lang), gold: r.name === HERO, hit: false, missed: false, hitT: -9, missT: -9 };
+    b.size = b.gold ? 64 : 46; b.rgb = hex(b.L.c);
     base.push(b); p = b;
   });
   const sw = base[base.length - 1];
-  const w = { base, today, sDay: sw.day };
-  w.flagX = sw.x + 1200;
+  const w = { base, today, sDay: sw.day, bridgeStart: sw.x - 14 };
+  w.bridgeEnd = w.bridgeStart + STREAK * TILE;
+  w.flagX = w.bridgeEnd + 900;
   w.blocks = base;
   // quiet stretches, posts and pits
   w.posts = []; w.pits = []; w.quiet = [];
@@ -330,16 +340,18 @@ function xToDay(x) {
   const B = W.base;
   if (x <= B[0].x) return 0;
   for (let i = 1; i < B.length; i++) if (x < B[i].x) { const a = B[i - 1], b = B[i]; return a.day + (b.day - a.day) * (x - a.x) / (b.x - a.x); }
-  const sx = B[B.length - 1].x;
-  if (x < W.flagX) return W.sDay + (W.today - W.sDay) * (x - sx) / (W.flagX - sx);
+  if (x < W.bridgeEnd) return W.sDay + clamp(Math.floor((x - W.bridgeStart) / TILE), 0, STREAK - 1);
+  const endD = W.sDay + STREAK - 1;
+  if (x < W.flagX) return endD + (W.today - endD) * (x - W.bridgeEnd) / (W.flagX - W.bridgeEnd);
   return W.today;
 }
 function dayToX(d) {
   const B = W.base;
   if (d <= 0) return B[0].x;
   for (let i = 1; i < B.length; i++) if (d <= B[i].day) { const a = B[i - 1], b = B[i]; return a.x + (b.x - a.x) * (d - a.day) / (b.day - a.day); }
-  const sx = B[B.length - 1].x;
-  return sx + (W.flagX - sx) * clamp((d - W.sDay) / Math.max(1, W.today - W.sDay), 0, 1);
+  const endD = W.sDay + STREAK - 1;
+  if (d <= endD) return W.bridgeStart + (d - W.sDay) * TILE + TILE / 2;
+  return W.bridgeEnd + (W.flagX - W.bridgeEnd) * clamp((d - endD) / Math.max(1, W.today - endD), 0, 1);
 }
 function paletteAt(x) {
   const P = dark ? PAL.dark : PAL.light;
@@ -348,7 +360,7 @@ function paletteAt(x) {
     const dd = x - yb.x;
     if (Math.abs(dd) < BLEND) {
       const a = P[palY(yb.y - 1)], b = P[palY(yb.y)], t = smooth((dd + BLEND) / (2 * BLEND));
-      const o = {};
+      const o = { ember: lerp(a.ember, b.ember, t) };
       for (const k of KEYS) o[k] = mix(a[k], b[k], t);
       return o;
     }
@@ -380,9 +392,10 @@ function resize() {
 /* ---------- state ---------- */
 const R = { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, phase: 0, pit: null, bubble: 0, sqT: 0, sqX: 1, sqY: 1 };
 const input = { jump: false, sprintKey: false };
-let camX = -300, simT = 0;
-let started = false, running = false;
-const parts = [];
+let camX = -300, simT = 0, streak = 0;
+let bannerDone = false, started = false, running = false;
+const litAt = new Float32Array(STREAK).fill(-9);
+const parts = [], embers = [];
 const NEUTRAL = hex(LANGS.none.c);
 let scarfCol = NEUTRAL.slice(), scarfTo = NEUTRAL.slice();
 const scarf = Array.from({ length: 6 }, () => ({ x: 0, y: 0, px: 0, py: 0 }));
@@ -420,6 +433,10 @@ function step(dt, auto, silent) {
     }
   } else if (overPit(R.x)) { R.ground = false; R.vy = 0; R.air = 1; R.cut = true; }
   collide(silent);
+  if (R.x >= W.bridgeStart) {
+    const n = Math.min(STREAK, Math.floor((R.x - W.bridgeStart) / TILE) + 1);
+    while (streak < n) { litAt[streak] = simT; streak++; if (streak === STREAK && !bannerDone) { bannerDone = true; if (!silent) showBanner(); } }
+  }
 }
 function startPit(silent) {
   const p = pitAt(R.x) || { x: R.x - 55, w: 110 };
@@ -508,6 +525,11 @@ function animate(dt) {
     if (p.t > p.life) { parts.splice(i, 1); continue; }
     p.vy -= (p.dust ? 0 : 1300) * dt; p.x += p.vx * dt; p.y += p.vy * dt;
   }
+  if (!RM) {
+    const pal = paletteAt(R.x);
+    if (pal.ember > .05 && Math.random() < pal.ember * dt * 14) embers.push({ x: Math.random() * vw, y: gy + 10, vy: 22 + Math.random() * 36, sw: Math.random() * 6.28, life: 4 + Math.random() * 3, t: 0, s: .8 + Math.random() * 1.8 });
+    for (let i = embers.length - 1; i >= 0; i--) { const e = embers[i]; e.t += dt; e.y -= e.vy * dt; e.x += Math.sin(e.t * 1.6 + e.sw) * 12 * dt; if (e.t > e.life || e.y < -10) embers.splice(i, 1); }
+  }
 }
 function scarfStep(dt) {
   const a = scarf[0];
@@ -547,8 +569,10 @@ function render() {
   drawYears(T);
   drawMountains(p.far, scroll * .2 * par, p);
   drawHills(p.mid, scroll * .5 * par);
+  drawEmbers();
   drawNear(p, scroll * .8 * par, T);
   drawGround(T);
+  drawTiles();
   for (const ps of W.posts) drawPost(ps.x, ps.label, T, 1);
   if (W.checkpoint != null) drawCheckpoint(T);
   for (const b of W.blocks) drawBlock(b);
@@ -636,6 +660,14 @@ function drawHills(col, off) {
   }
   ctx.lineTo(vw + 20, gy); ctx.closePath(); ctx.fill();
 }
+function drawEmbers() {
+  if (!embers.length) return;
+  for (const e of embers) {
+    const a = Math.min(1, e.t) * (1 - e.t / e.life);
+    ctx.fillStyle = 'rgba(255,' + (150 + (e.s * 30 | 0)) + ',90,' + (a * .85).toFixed(2) + ')';
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.s, 0, 7); ctx.fill();
+  }
+}
 function drawNear(p, off, T) {
   const sp = 110, i0 = Math.floor(off / sp) - 1, i1 = Math.ceil((off + vw) / sp) + 1;
   const col = rgb(p.near), dk = rgb(mix(p.near, [0, 0, 0], .18));
@@ -684,6 +716,19 @@ function drawGround(T) {
     ctx.fillRect(sx, gy, 4, vh - gy); ctx.fillRect(sx + pt.w - 4, gy, 4, vh - gy);
   }
 }
+function drawTiles() {
+  const i0 = Math.max(0, Math.floor((camX - W.bridgeStart) / TILE)), i1 = Math.min(STREAK - 1, Math.ceil((camX + vw - W.bridgeStart) / TILE));
+  for (let i = i0; i <= i1; i++) {
+    const x = W.bridgeStart + i * TILE - camX;
+    if (i < streak) {
+      const age = simT - litAt[i], fl = RM ? 0 : clamp(1 - age / .35, 0, 1);
+      ctx.fillStyle = 'rgba(255,138,76,' + (.28 + .4 * fl).toFixed(2) + ')';
+      rr(x - 1, gy - 3 - 3 * fl, TILE + 2, 13 + 3 * fl, 5); ctx.fill();
+      ctx.fillStyle = rgb(mix([255, 138, 76], [255, 226, 140], fl * .8 + .15));
+    } else ctx.fillStyle = dark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.16)';
+    rr(x + 2, gy + 1, TILE - 4, 6, 2); ctx.fill();
+  }
+}
 function board(cx, by, text, T, font, align) {
   ctx.font = font;
   const w = ctx.measureText(text).width + 16, h = 22;
@@ -718,11 +763,19 @@ function drawBlock(b) {
   const gl = ctx.createRadialGradient(cx, cy, s * .2, cx, cy, s * 1.3);
   gl.addColorStop(0, rgb(b.rgb, dark ? .55 : .42)); gl.addColorStop(1, rgb(b.rgb, 0));
   ctx.fillStyle = gl; ctx.fillRect(cx - s * 1.3, cy - s * 1.3, s * 2.6, s * 2.6);
-  const base = b.rgb;
+  const base = b.gold ? [245, 179, 36] : b.rgb;
   ctx.fillStyle = rgb(mix(base, [0, 0, 0], .28)); rr(cx - s / 2, top + 4, s, s, s * .24); ctx.fill();
   ctx.fillStyle = rgb(base); rr(cx - s / 2, top, s, s, s * .24); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.22)'; rr(cx - s / 2 + 4, top + 4, s - 8, s * .32, s * .16); ctx.fill();
-  if (b.hit) check(cx, cy + 1, 10, b.L.dark ? '#1a1a1a' : '#fff');
+  if (b.r.name === 'persistent-stopwatch' || b.gold) {
+    ctx.fillStyle = '#1a1a1a'; rr(cx - 4, top - 6, 8, 6, 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy + 2, s * .3, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2; ctx.stroke();
+    const a = (Math.floor(Date.now() / 1000) % 60) / 60 * Math.PI * 2;
+    ctx.lineCap = 'round'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(cx, cy + 2); ctx.lineTo(cx + Math.sin(a) * s * .22, cy + 2 - Math.cos(a) * s * .22); ctx.stroke();
+    ctx.fillStyle = '#e8590c'; ctx.beginPath(); ctx.arc(cx, cy + 2, 2.5, 0, 7); ctx.fill();
+    if (b.hit) { ctx.fillStyle = '#3ad06b'; ctx.beginPath(); ctx.arc(cx + s / 2 - 4, top + 4, 9, 0, 7); ctx.fill(); check(cx + s / 2 - 4, top + 4, 5, '#fff'); }
+  } else if (b.hit) check(cx, cy + 1, 10, b.L.dark ? '#1a1a1a' : '#fff');
   else {
     ctx.fillStyle = b.L.dark ? '#1a1a1a' : '#fff';
     ctx.font = '500 ' + (b.L.t.length > 2 ? 13 : 15) + 'px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -833,6 +886,7 @@ function showCard(b) {
   clearTimeout(cardT); cardT = setTimeout(() => card.classList.remove('on'), 4000);
   announce('got lap ' + (info ? info.n : '') + ': ' + b.r.name.toLowerCase() + ', ' + b.L.label + ', ' + dayDate(b.day) + '.');
 }
+function showBanner() { const b = $('#banner'); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); announce('110 days, no stops.'); }
 
 /* ---------- input ---------- */
 function firstAction() { started = true; }
