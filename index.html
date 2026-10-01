@@ -73,8 +73,17 @@ a{color:inherit}
 .skip:hover{transform:translateY(-1px)}
 
 .title{position:absolute;left:0;right:0;top:27%;z-index:2;text-align:center;padding:0 16px;pointer-events:none;transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.title.gone{opacity:0;transform:translateY(-16px)}
 .title h1{font:700 clamp(38px,7vw,124px)/.92 var(--sans);letter-spacing:-.05em;margin:0;text-wrap:balance}
 .title h1 em{font-style:normal;color:var(--accent-ink);display:block}
+.hint{display:inline-flex;flex-wrap:wrap;justify-content:center;gap:6px 10px;margin-top:26px;font:500 13px/1 var(--mono);padding:10px 16px;border-radius:999px;background:var(--chip);border:1px solid var(--chip-line)}
+.hint kbd{font:inherit;padding:2px 6px;border-radius:5px;border:1px solid var(--chip-line);background:var(--bg)}
+.hint .sep{color:var(--muted)}
+
+.hud-bot{position:absolute;left:30px;right:30px;bottom:24px;z-index:3;display:flex;flex-wrap:wrap;gap:8px;pointer-events:none}
+.chip{font:500 13px/1 var(--mono);font-variant-numeric:tabular-nums;padding:9px 13px;border-radius:999px;background:var(--chip);border:1px solid var(--chip-line);white-space:nowrap}
+.chip.streak{background:var(--accent);color:#1a1a1a;border-color:transparent;transition:opacity .4s var(--ease),transform .4s var(--ease)}
+.chip.streak[hidden]{display:inline-block;opacity:0;transform:translateY(8px)}
 
 /* repo card */
 .rcard{position:absolute;z-index:5;top:168px;right:30px;width:310px;padding:16px 18px 18px;border-radius:16px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);transform:translateX(calc(100% + 40px));opacity:0;visibility:hidden;transition:transform .5s var(--ease),opacity .5s var(--ease),visibility 0s .5s;overflow:hidden}
@@ -167,6 +176,13 @@ h2.big:focus{outline:none}
 
   <div class="title" id="title">
     <h1>aaghash murugesan. <em>still running.</em></h1>
+    <div class="hint" id="hint"><span><kbd>space</kbd> / tap to jump</span><span class="sep">·</span><span>hold <kbd>→</kbd> to sprint</span></div>
+  </div>
+
+  <div class="hud-bot" aria-hidden="true">
+    <span class="chip" id="hday">day 0 · 19 sep 2022</span>
+    <span class="chip" id="hrepos">repos 0/16</span>
+    <span class="chip streak" id="hstreak" hidden>streak 0/110</span>
   </div>
 
   <div class="rcard" id="rcard" aria-hidden="true">
@@ -331,6 +347,7 @@ function buildWorld() {
   }
   const cs = base.find((b) => b.r.name === 'CODESOFT');
   w.checkpoint = cs ? cs.x - 82 : null;
+  w.d2026 = parseDay('2026-01-01');
   W = w;
   w.years = [{ y: 2022, x: 260 }];
   for (let y = 2023; y <= dayYear(today); y++) { const d = parseDay(y + '-01-01'); if (d <= today) w.years.push({ y, x: dayToX(d) }); }
@@ -373,7 +390,7 @@ const pitAt = (x) => W.pits.find((p) => x > p.x - 4 && x < p.x + p.w + 4);
 
 /* ---------- dom refs ---------- */
 const stage = $('#stage'), cv = $('#game'), ctx = cv.getContext('2d');
-const el = { cy: $('#cy'), cd: $('#cd'), ct: $('#ct'), cc: $('#cc') };
+const el = { cy: $('#cy'), cd: $('#cd'), ct: $('#ct'), cc: $('#cc'), day: $('#hday'), repos: $('#hrepos'), streak: $('#hstreak'), title: $('#title'), hint: $('#hint') };
 
 /* ---------- canvas sizing ---------- */
 let Wd = 1, Hd = 1, dpr = 1, zoom = 1, vw = 1, vh = 1, gy = 1, rx = .3, hs = 1, phone = false;
@@ -514,6 +531,7 @@ function frame(now) {
   if (Math.abs(tx - camX) > vw * 2) camX = tx;
   render();
   if (!RM) updateClock();
+  updateHUD();
 }
 function animate(dt) {
   R.phase += dt * Math.PI * 2 * 9 * Math.sqrt(R.speed / RUN);
@@ -866,6 +884,14 @@ function updateClock() {
   setT(el.ct, 't', pad(Math.floor(t / 3.6e6)) + ':' + pad(Math.floor(t / 6e4) % 60) + ':' + pad(Math.floor(t / 1e3) % 60));
   setT(el.cc, 'c', '.' + pad(Math.floor(t / 10) % 100));
 }
+function updateHUD() {
+  const d = Math.max(0, Math.floor(xToDay(R.x)));
+  setT(el.day, 'day', 'day ' + fmtInt(d) + ' · ' + dayDate(d));
+  setT(el.repos, 'rp', 'repos ' + hits + '/' + W.blocks.length);
+  const show = d >= W.d2026;
+  if (el.streak.hidden === show) el.streak.hidden = !show;
+  setT(el.streak, 'st', 'streak ' + streak + '/' + STREAK);
+}
 
 /* ---------- ui bits ---------- */
 const announceEl = $('#announce');
@@ -887,10 +913,13 @@ function showCard(b) {
   announce('got lap ' + (info ? info.n : '') + ': ' + b.r.name.toLowerCase() + ', ' + b.L.label + ', ' + dayDate(b.day) + '.');
 }
 function showBanner() { const b = $('#banner'); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); announce('110 days, no stops.'); }
+let titleGone = false;
+function hideTitle() { if (titleGone) return; titleGone = true; el.title.classList.add('gone'); }
+setTimeout(hideTitle, 6000);
 
 /* ---------- input ---------- */
 function firstAction() { started = true; }
-function pressJump() { R.buffer = BUFFER; input.jump = true; firstAction(); }
+function pressJump() { R.buffer = BUFFER; input.jump = true; hideTitle(); firstAction(); }
 function releaseJump() { input.jump = false; }
 const isField = (t) => t && t.closest && t.closest('a,button,input,textarea,select,[contenteditable]');
 addEventListener('keydown', (e) => {
@@ -964,7 +993,7 @@ if ('ResizeObserver' in window) new ResizeObserver(resize).observe(stage); else 
 /* ---------- boot ---------- */
 resize();
 renderLaps(); renderFoot();
-updateClock();
+updateClock(); updateHUD();
 setInterval(() => { if (RM || !running || !stageOn) updateClock(); }, 1000);
 requestAnimationFrame((t) => { last = t; frame(t); });
 })();
