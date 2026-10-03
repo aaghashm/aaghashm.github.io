@@ -101,6 +101,9 @@ a{color:inherit}
 @keyframes drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 
 /* toasts, pops */
+.pop{position:absolute;left:50%;top:38%;z-index:4;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;font:700 clamp(40px,7vw,96px)/1 var(--sans);letter-spacing:-.04em;color:var(--fastest);text-shadow:0 4px 0 rgba(0,0,0,.12);white-space:nowrap}
+.pop.on{animation:pop 1.4s var(--ease) forwards}
+@keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.6) rotate(-6deg)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.08) rotate(-3deg)}30%{transform:translate(-50%,-50%) scale(1) rotate(-3deg)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-70%) scale(1) rotate(-3deg)}}
 .banner{position:absolute;left:0;right:0;top:34%;z-index:4;text-align:center;pointer-events:none;opacity:0;font:700 clamp(34px,6vw,84px)/1 var(--sans);letter-spacing:-.045em;color:#fff;text-shadow:0 2px 0 rgba(120,40,0,.35),0 10px 40px rgba(255,120,40,.55);padding:0 16px}
 .banner small{display:block;font:500 13px/1 var(--mono);letter-spacing:.06em;margin-top:14px;opacity:.9;text-shadow:none;color:#fff}
 .banner.on{animation:rise 3.2s var(--ease) forwards}
@@ -214,6 +217,7 @@ h2.big:focus{outline:none}
     <span class="rc-bar"></span>
   </div>
 
+  <div class="pop" id="pop" aria-hidden="true">combo x4!</div>
   <div class="banner" id="banner" aria-hidden="true">110 days, no stops.<small>28 jun to 15 oct 2026</small></div>
 
   <div class="finish" id="finish" hidden>
@@ -452,9 +456,9 @@ function resize() {
 const R = { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, phase: 0, pit: null, bubble: 0, sqT: 0, sqX: 1, sqY: 1 };
 const input = { jump: false, sprintKey: false };
 let camX = -300, tread = 0, simT = 0, runTime = 0, finished = false, finalTime = 0, streak = 0;
-let bannerDone = false, started = false, running = false;
+let comboDone = false, bannerDone = false, started = false, running = false;
 const litAt = new Float32Array(STREAK).fill(-9);
-const parts = [], embers = [];
+const parts = [], captions = [], embers = [];
 const NEUTRAL = hex(LANGS.none.c);
 let scarfCol = NEUTRAL.slice(), scarfTo = NEUTRAL.slice();
 const scarf = Array.from({ length: 6 }, () => ({ x: 0, y: 0, px: 0, py: 0 }));
@@ -537,11 +541,13 @@ function hitBlock(b, silent) {
   if (silent) { scarfCol = scarfTo.slice(); }
   else {
     burst(b); showCard(b);
+    if (b.idx < 4 && !comboDone && W.base.slice(0, 4).every((x) => x.hit)) { comboDone = true; pop(); }
   }
   lapDot(b.r.name, 'got');
 }
 function missBlock(b, silent) {
   b.missed = true; b.missT = simT;
+  if (!silent) captions.push({ x: b.x, t: simT });
   lapDot(b.r.name, 'miss');
 }
 
@@ -589,6 +595,7 @@ function animate(dt) {
     if (p.t > p.life) { parts.splice(i, 1); continue; }
     p.vy -= (p.dust ? 0 : 1300) * dt; p.x += p.vx * dt; p.y += p.vy * dt;
   }
+  for (let i = captions.length - 1; i >= 0; i--) if (simT - captions[i].t > 1.6) captions.splice(i, 1);
   if (!RM) {
     const pal = paletteAt(R.x);
     if (pal.ember > .05 && Math.random() < pal.ember * dt * 14) embers.push({ x: Math.random() * vw, y: gy + 10, vy: 22 + Math.random() * 36, sw: Math.random() * 6.28, life: 4 + Math.random() * 3, t: 0, s: .8 + Math.random() * 1.8 });
@@ -642,6 +649,7 @@ function render() {
   if (W.checkpoint != null) drawCheckpoint(T);
   drawFlag(T);
   for (const b of W.blocks) drawBlock(b);
+  drawCaptions(T);
   drawFog(p);
   drawRunner(T);
   drawParts();
@@ -876,6 +884,17 @@ function check(x, y, r, c) {
   ctx.strokeStyle = c; ctx.lineWidth = Math.max(2, r * .32); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.beginPath(); ctx.moveTo(x - r * .7, y); ctx.lineTo(x - r * .15, y + r * .55); ctx.lineTo(x + r * .75, y - r * .5); ctx.stroke();
 }
+function drawCaptions(T) {
+  for (const c of captions) {
+    const t = simT - c.t, a = clamp(t < .2 ? t / .2 : 1 - (t - 1) / .6, 0, 1);
+    ctx.globalAlpha = a; ctx.font = '500 12px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const x = c.x - camX, y = gy - 170 - t * 26;
+    const w = ctx.measureText('on the list below.').width + 16;
+    ctx.fillStyle = T.board; rr(x - w / 2, y - 11, w, 22, 11); ctx.fill();
+    ctx.fillStyle = T.text; ctx.fillText('on the list below.', x, y + .5);
+    ctx.globalAlpha = 1;
+  }
+}
 function drawFog(p) {
   const fx = W.flagX + 260 - camX; if (fx > vw) return;
   const g = ctx.createLinearGradient(fx, 0, fx + 620, 0);
@@ -988,6 +1007,7 @@ function showCard(b) {
   clearTimeout(cardT); cardT = setTimeout(() => card.classList.remove('on'), 4000);
   announce('got lap ' + (info ? info.n : '') + ': ' + b.r.name.toLowerCase() + ', ' + b.L.label + ', ' + dayDate(b.day) + '.');
 }
+function pop() { const p = $('#pop'); p.classList.remove('on'); void p.offsetWidth; p.classList.add('on'); announce('combo x4!'); }
 function showBanner() { const b = $('#banner'); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); announce('110 days, no stops.'); }
 let titleGone = false;
 function hideTitle() { if (titleGone) return; titleGone = true; el.title.classList.add('gone'); }
@@ -1014,9 +1034,9 @@ function closeFinish() { if (!finOpen) return; finOpen = false; fin.classList.re
 function resetRun() {
   Object.assign(R, { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, pit: null, bubble: 0, sqT: 0 });
   tread = 0; runTime = 0; finished = false; pendingFinish = false; streak = 0; litAt.fill(-9);
-  bannerDone = false;
+  comboDone = false; bannerDone = false;
   W.blocks.forEach((b) => { b.hit = b.missed = false; b.hitT = b.missT = -9; });
-  countHits(); parts.length = 0;
+  countHits(); parts.length = 0; captions.length = 0;
   scarfTo = NEUTRAL.slice(); scarfCol = NEUTRAL.slice(); resetScarf();
   camX = R.x - vw * rx;
   D.querySelectorAll('.lap').forEach((li) => setDot(li, ''));
