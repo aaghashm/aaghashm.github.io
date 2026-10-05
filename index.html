@@ -71,6 +71,19 @@ a{color:inherit}
 .ctl{grid-area:ctl;display:flex;flex-direction:row-reverse;justify-content:flex-start;align-items:center;gap:8px}
 .skip{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;background:var(--chip);border:1px solid var(--chip-line);font:500 13px/1 var(--mono);text-decoration:none;color:var(--fg);transition:transform .25s var(--ease),background .25s var(--ease)}
 .skip:hover{transform:translateY(-1px)}
+.stopwrap{position:relative}
+.stopbtn{position:relative;width:44px;height:44px;border-radius:50%;border:0;padding:0;background:var(--chip);color:var(--fg);cursor:pointer;display:grid;place-items:center;box-shadow:inset 0 0 0 1px var(--chip-line);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;transition:transform .2s var(--ease)}
+.stopbtn:active{transform:scale(.94)}
+.stopbtn svg{width:44px;height:44px;display:block}
+.stopbtn .ring-bg{stroke:var(--chip-line);stroke-width:3;fill:none}
+.stopbtn .ring{stroke:var(--accent);stroke-width:3;fill:none;stroke-dasharray:113.1;stroke-dashoffset:113.1;transform:rotate(-90deg);transform-origin:22px 22px;transition:stroke-dashoffset .2s var(--ease)}
+.stopbtn.holding .ring{stroke-dashoffset:0;transition:stroke-dashoffset .6s linear}
+.stopbtn .sq{fill:var(--fg);transition:transform .25s var(--ease);transform-origin:22px 23px}
+.stopbtn .crown{fill:var(--fg)}
+.is-stopped .stopbtn{background:var(--accent);color:#1a1a1a}
+.is-stopped .stopbtn .sq,.is-stopped .stopbtn .crown{fill:#1a1a1a}
+.tip{position:absolute;top:52px;right:0;white-space:nowrap;font:500 12px/1 var(--mono);background:var(--fg);color:var(--bg);padding:8px 10px;border-radius:8px;opacity:0;transform:translateY(-4px);transition:opacity .25s var(--ease),transform .25s var(--ease);pointer-events:none}
+.tip.on{opacity:1;transform:none}
 
 .title{position:absolute;left:0;right:0;top:27%;z-index:2;text-align:center;padding:0 16px;pointer-events:none;transition:opacity .9s var(--ease),transform .9s var(--ease)}
 .title.gone{opacity:0;transform:translateY(-16px)}
@@ -101,6 +114,8 @@ a{color:inherit}
 @keyframes drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 
 /* toasts, pops */
+.toast{position:fixed;left:50%;bottom:28px;z-index:30;max-width:calc(100% - 32px);transform:translate(-50%,calc(100% + 40px));background:var(--fg);color:var(--bg);font:500 14px/1.45 var(--mono);padding:13px 18px;border-radius:14px;box-shadow:0 16px 40px -16px rgba(0,0,0,.45);transition:transform .45s var(--ease);white-space:pre-line;text-align:center;pointer-events:none}
+.toast.on{transform:translate(-50%,0)}
 .pop{position:absolute;left:50%;top:38%;z-index:4;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;font:700 clamp(40px,7vw,96px)/1 var(--sans);letter-spacing:-.04em;color:var(--fastest);text-shadow:0 4px 0 rgba(0,0,0,.12);white-space:nowrap}
 .pop.on{animation:pop 1.4s var(--ease) forwards}
 @keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.6) rotate(-6deg)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.08) rotate(-3deg)}30%{transform:translate(-50%,-50%) scale(1) rotate(-3deg)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-70%) scale(1) rotate(-3deg)}}
@@ -186,6 +201,12 @@ h2.big:focus{outline:none}
   <div class="hud-top">
     <div class="ctl">
       <a class="skip" href="#laps">just the list ↓</a>
+      <div class="stopwrap">
+        <button class="stopbtn" id="stopbtn" type="button" aria-label="stop the clock (hold)" aria-keyshortcuts="s" aria-describedby="stoptip">
+          <svg viewBox="0 0 44 44" aria-hidden="true"><circle class="ring-bg" cx="22" cy="22" r="18"/><circle class="ring" cx="22" cy="22" r="18"/><rect class="crown" x="19.5" y="9.5" width="5" height="3" rx="1"/><rect class="sq" x="16" y="17" width="12" height="12" rx="2.5"/></svg>
+        </button>
+        <span class="tip" id="stoptip" role="tooltip">hold to stop</span>
+      </div>
     </div>
     <div class="who">
       <p class="nm">aaghash murugesan</p>
@@ -199,7 +220,7 @@ h2.big:focus{outline:none}
 
   <div class="title" id="title">
     <h1>aaghash murugesan. <em>still running.</em></h1>
-    <div class="hint" id="hint"><span><kbd>space</kbd> / tap to jump</span><span class="sep">·</span><span>hold <kbd>→</kbd> to sprint</span></div>
+    <div class="hint" id="hint"><span><kbd>space</kbd> / tap to jump</span><span class="sep">·</span><span>hold <kbd>→</kbd> to sprint</span><span class="sep">·</span><span><kbd>s</kbd> to stop</span></div>
   </div>
 
   <div class="hud-bot" aria-hidden="true">
@@ -257,6 +278,7 @@ h2.big:focus{outline:none}
   </div>
 </footer>
 
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="sr" id="announce" aria-live="polite"></div>
 
 <script>
@@ -455,7 +477,7 @@ function resize() {
 /* ---------- state ---------- */
 const R = { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, phase: 0, pit: null, bubble: 0, sqT: 0, sqX: 1, sqY: 1 };
 const input = { jump: false, sprintKey: false };
-let camX = -300, tread = 0, simT = 0, runTime = 0, finished = false, finalTime = 0, streak = 0;
+let camX = -300, tread = 0, simT = 0, runTime = 0, finished = false, finalTime = 0, streak = 0, frozen = false, debt = 0;
 let comboDone = false, bannerDone = false, started = false, running = false;
 const litAt = new Float32Array(STREAK).fill(-9);
 const parts = [], captions = [], embers = [];
@@ -573,10 +595,13 @@ function frame(now) {
   if (!stageOn || D.hidden) return;
   dt = Math.min(dt, 1 / 30);
   running = true;
-  acc += dt;
-  let guard = 0;
-  while (acc >= STEP && guard++ < 400) { step(STEP, false, false); acc -= STEP; }
-  animate(dt);
+  if (!frozen) {
+    acc += dt;
+    if (debt > 0) { const e = Math.min(debt, dt * 1.5 / .4); debt -= e; acc += e; }
+    let guard = 0;
+    while (acc >= STEP && guard++ < 400) { step(STEP, false, false); acc -= STEP; }
+    animate(dt);
+  }
   const tx = R.x - vw * rx;
   camX += (tx - camX) * (1 - Math.pow(1 - .12, dt * 60));
   if (Math.abs(tx - camX) > vw * 2) camX = tx;
@@ -964,7 +989,10 @@ function drawBubble(T) {
 }
 
 /* ---------- clock + hud ---------- */
+const gag = { phase: '', n: 0, at: 0, spin: 0 };
 function clockMs() {
+  if (gag.phase === 'frozen') return gag.at;
+  if (gag.phase === 'spin') return lerp(gag.at, Date.now(), ease((performance.now() - gag.spin) / 400));
   return Date.now();
 }
 const cache = {};
@@ -989,7 +1017,9 @@ function updateHUD() {
 }
 
 /* ---------- ui bits ---------- */
-const announceEl = $('#announce');
+const toastEl = $('#toast'), announceEl = $('#announce');
+let toastT = 0;
+function toast(msg, ms) { toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), ms || 2600); }
 function announce(msg) { announceEl.textContent = ''; setTimeout(() => (announceEl.textContent = msg), 60); }
 const card = $('#rcard');
 let cardT = 0;
@@ -1051,6 +1081,35 @@ $('#fcopy').addEventListener('click', (e) => {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
 });
 
+/* ---------- fake stop ---------- */
+const stopBtn = $('#stopbtn'), tipEl = $('#stoptip');
+let tipT = 0, holdT = 0;
+function tip() { tipEl.classList.add('on'); clearTimeout(tipT); tipT = setTimeout(() => tipEl.classList.remove('on'), 1400); }
+function fakeStop() {
+  gag.n++; renderFoot();
+  const n = gag.n;
+  if (gag.phase) return;
+  if (n === 3 || (n > 5 && n % 4 === 3)) { toast('still no.'); return; }
+  if (n === 5 || (n > 5 && n % 4 === 1)) { toast("there is no stop button. that's the whole point.", 3400); return; }
+  gag.phase = 'frozen'; gag.at = Date.now(); frozen = true; stage.classList.add('is-stopped');
+  updateClock();
+  toast('fine. stopped.', 1500);
+  setTimeout(() => {
+    gag.phase = 'spin'; gag.spin = performance.now(); frozen = false; debt = 1.5; last = performance.now();
+    stage.classList.remove('is-stopped');
+    toast('jk. it was running the whole time.', 2600);
+    setTimeout(() => { gag.phase = ''; }, 420);
+  }, 1500);
+}
+function holdStart() { if (holdT) return; stopBtn.classList.add('holding'); holdT = setTimeout(() => { holdT = 0; stopBtn.classList.remove('holding'); fakeStop(); }, 600); }
+function holdEnd() { if (!holdT) return; clearTimeout(holdT); holdT = 0; stopBtn.classList.remove('holding'); tip(); }
+stopBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); try { stopBtn.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } holdStart(); });
+stopBtn.addEventListener('pointerup', holdEnd);
+stopBtn.addEventListener('pointercancel', holdEnd);
+stopBtn.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); holdStart(); } });
+stopBtn.addEventListener('keyup', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); holdEnd(); } });
+stopBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+
 /* ---------- input ---------- */
 function firstAction() { started = true; }
 function pressJump() { R.buffer = BUFFER; input.jump = true; hideTitle(); firstAction(); }
@@ -1060,6 +1119,7 @@ addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key;
   if (k === 'Escape' && finOpen) { closeFinish(); return; }
+  if ((k === 's' || k === 'S') && !e.repeat && !(e.target && e.target.closest && e.target.closest('input,textarea'))) { fakeStop(); return; }
   if (stageRatio < .5) return;
   if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W') { if (isField(e.target)) return; e.preventDefault(); if (!e.repeat) pressJump(); }
   else if (k === 'ArrowRight' || k === 'd' || k === 'D') { if (isField(e.target) && k !== 'ArrowRight') return; e.preventDefault(); input.sprintKey = true; firstAction(); }
@@ -1116,7 +1176,7 @@ function renderLaps() {
 }
 function renderFoot() {
   const n = BASE.length;
-  $('#fstat').innerHTML = n + ' repos · <b>' + fmtInt(todayIdx()) + '</b> days · 0 stops';
+  $('#fstat').innerHTML = n + ' repos · <b>' + fmtInt(todayIdx()) + '</b> days · 0 stops' + (gag.n ? ' <span>(you tried ' + gag.n + ')</span>' : '');
 }
 
 /* ---------- visibility of the stage ---------- */
