@@ -1199,6 +1199,42 @@ function renderFoot() {
   $('#fstat').innerHTML = n + ' repos · <b>' + fmtInt(todayIdx()) + '</b> days · 0 stops' + (gag.n ? ' <span>(you tried ' + gag.n + ')</span>' : '');
 }
 
+/* ---------- favicon + title ---------- */
+const BASE_TITLE = 'aaghash murugesan · still running';
+const fav = D.createElement('canvas'); fav.width = fav.height = 32;
+const fctx = fav.getContext('2d'), favLink = $('#favicon');
+function drawFavicon() {
+  const s = new Date().getSeconds(), a = s / 60 * Math.PI * 2;
+  fctx.clearRect(0, 0, 32, 32);
+  fctx.fillStyle = '#f5a623'; fctx.fillRect(13, 1, 6, 4);
+  fctx.beginPath(); fctx.arc(16, 18, 12, 0, 7); fctx.fillStyle = '#141416'; fctx.fill();
+  fctx.lineWidth = 3; fctx.strokeStyle = '#f5a623'; fctx.stroke();
+  fctx.strokeStyle = '#fff'; fctx.lineWidth = 2.5; fctx.lineCap = 'round';
+  fctx.beginPath(); fctx.moveTo(16, 18); fctx.lineTo(16 + Math.sin(a) * 8, 18 - Math.cos(a) * 8); fctx.stroke();
+  fctx.fillStyle = '#f5a623'; fctx.beginPath(); fctx.arc(16, 18, 2, 0, 7); fctx.fill();
+  try { favLink.href = fav.toDataURL('image/png'); } catch (x) { /* ignore */ }
+}
+let hiddenAt = 0, titleT = 0;
+const mmss = (ms) => { const s = Math.floor(ms / 1000), h = Math.floor(s / 3600); return (h ? h + ':' : '') + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); };
+D.addEventListener('visibilitychange', () => {
+  if (D.hidden) {
+    hiddenAt = Date.now();
+    clearTimeout(titleT); D.title = 'still running... 00:00';
+    input.jump = input.sprintKey = false;
+    tick1();
+  } else {
+    D.title = 'told you.'; clearTimeout(titleT); titleT = setTimeout(() => (D.title = BASE_TITLE), 2500);
+    last = performance.now();
+    if (RM) updateClock();
+  }
+});
+function tick1() {
+  const now = Date.now();
+  drawFavicon();
+  if (D.hidden && hiddenAt) D.title = 'still running... ' + mmss(now - hiddenAt);
+  if (RM || !running || !stageOn) updateClock();
+}
+
 /* ---------- visibility of the stage ---------- */
 if ('IntersectionObserver' in window) {
   new IntersectionObserver((es) => { for (const e of es) { stageRatio = e.intersectionRatio; stageOn = e.isIntersecting; } }, { threshold: [0, .1, .25, .5, .75, 1] }).observe(stage);
@@ -1208,8 +1244,8 @@ if ('ResizeObserver' in window) new ResizeObserver(resize).observe(stage); else 
 /* ---------- boot ---------- */
 resize();
 renderLaps(); renderFoot();
-updateClock(); updateHUD();
-setInterval(() => { if (RM || !running || !stageOn) updateClock(); }, 1000);
+updateClock(); updateHUD(); drawFavicon(); tick1();
+setInterval(tick1, 1000);
 requestAnimationFrame((t) => { last = t; frame(t); });
 })();
 </script>
