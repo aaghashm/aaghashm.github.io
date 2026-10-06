@@ -45,6 +45,7 @@
 }
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;overflow-x:clip}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:clip}
 a{color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
@@ -68,6 +69,7 @@ a{color:inherit}
 .clock{font:300 clamp(28px,5vw,64px)/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.045em;white-space:nowrap;margin:0}
 .clock .u{font-size:.4em;color:var(--muted);margin:0 .32em 0 .08em;letter-spacing:0;font-weight:500}
 .clock .cs{color:var(--accent-ink)}
+.rm .clock .cs{display:none}
 .ctl{grid-area:ctl;display:flex;flex-direction:row-reverse;justify-content:flex-start;align-items:center;gap:8px}
 .skip{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;background:var(--chip);border:1px solid var(--chip-line);font:500 13px/1 var(--mono);text-decoration:none;color:var(--fg);transition:transform .25s var(--ease),background .25s var(--ease)}
 .skip:hover{transform:translateY(-1px)}
@@ -191,6 +193,11 @@ h2.big:focus{outline:none}
 .foot-in b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}
 .ph{display:inline-flex;align-items:center;gap:7px}
 .ph i{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#ffd3a8,#ff8a4c)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  .pop.on,.banner.on{animation:none;opacity:1}
+}
 </style>
 </head>
 <body>
@@ -352,7 +359,9 @@ const mqDark = matchMedia('(prefers-color-scheme: dark)');
 const mqRM = matchMedia('(prefers-reduced-motion: reduce)');
 const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : mqDark.matches);
 let dark = isDark(), RM = mqRM.matches;
+root.classList.toggle('rm', RM);
 onMQ(mqDark, () => { dark = isDark(); });
+onMQ(mqRM, (e) => { RM = e.matches; root.classList.toggle('rm', RM); });
 
 /* ---------- palettes ---------- */
 const PALRAW = {
@@ -496,6 +505,7 @@ function squash(x, y) { if (RM) return; R.sqX = x; R.sqY = y; R.sqT = .12; }
 function step(dt, auto, silent) {
   simT += dt;
   if (!finished) runTime += dt;
+  if (auto) autopilot();
   const sprint = !auto && input.sprintKey;
   const onTread = R.x >= W.treadX;
   const target = onTread ? (sprint ? 400 : JOG) : (sprint ? SPRINT : RUN);
@@ -525,6 +535,16 @@ function step(dt, auto, silent) {
     while (streak < n) { litAt[streak] = simT; streak++; if (streak === STREAK && !bannerDone) { bannerDone = true; if (!silent) showBanner(); } }
   }
   if (!finished && R.x >= W.flagX) { finished = true; finalTime = runTime; pendingFinish = true; finishAt = silent ? 0 : performance.now() + 900; }
+}
+function autopilot() {
+  if (!R.ground || R.pit) return;
+  for (const b of W.blocks) {
+    if (b.hit || b.missed) continue;
+    const d = b.x - R.x;
+    if (d > 92 && d < 108) { R.buffer = BUFFER; return; }
+    if (d > 108) break;
+  }
+  for (const p of W.pits) { const d = p.x - R.x; if (d > 26 && d < 46) { R.buffer = BUFFER; return; } }
 }
 function startPit(silent) {
   const p = pitAt(R.x) || { x: R.x - 55, w: 110 };
@@ -599,7 +619,7 @@ function frame(now) {
     acc += dt;
     if (debt > 0) { const e = Math.min(debt, dt * 1.5 / .4); debt -= e; acc += e; }
     let guard = 0;
-    while (acc >= STEP && guard++ < 400) { step(STEP, false, false); acc -= STEP; }
+    while (acc >= STEP && guard++ < 400) { step(STEP, RM, false); acc -= STEP; }
     animate(dt);
   }
   const tx = R.x - vw * rx;
