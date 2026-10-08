@@ -195,6 +195,31 @@ h2.big:focus{outline:none}
 .ph{display:inline-flex;align-items:center;gap:7px}
 .ph i{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#ffd3a8,#ff8a4c)}
 
+/* ---------- phones ---------- */
+@media (max-width:700px){
+  .wrap{padding:0 16px}
+  .hud-top{grid-template-columns:1fr auto;grid-template-areas:"who ctl" "clock clock";padding:14px 16px;row-gap:12px}
+  .clockbox{align-items:flex-start}
+  .ctl .skip{padding:0 13px;font-size:12px}
+  .hud-bot{left:16px;right:16px;bottom:14px;gap:6px}
+  .chip{font-size:12px;padding:8px 11px}
+  .rcard{top:auto;bottom:62px;left:16px;right:16px;width:auto;transform:translateY(calc(100% + 80px))}
+  .title{top:33%}
+  .hint{font-size:12px;margin-top:14px}
+  section{padding-top:80px}
+  .laphead{display:none}
+  .lap{grid-template-columns:40px minmax(0,1fr) auto;grid-template-areas:"n main split" ". meta meta";gap:8px 10px;padding:16px 4px}
+  .lap.hero{padding-left:12px;padding-right:8px}
+  .lap-n{align-self:start;padding-top:4px}
+  .lap-meta{display:flex;grid-area:meta;gap:14px;flex-wrap:wrap}
+  .lap-name{font-size:17px}
+  .lap.hero .lap-name{font-size:19px}
+  .lap-split{align-self:start;padding-top:3px;flex-direction:column;align-items:flex-end;gap:6px}
+  .foot{padding:80px 16px 48px}
+}
+@media (max-width:700px) and (orientation:portrait){
+  .stage{height:72vh;height:72svh;min-height:480px}
+}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
   .pop.on,.banner.on{animation:none;opacity:1}
@@ -371,6 +396,7 @@ const onMQ = (mq, fn) => (mq.addEventListener ? mq.addEventListener('change', fn
 /* ---------- media ---------- */
 const mqDark = matchMedia('(prefers-color-scheme: dark)');
 const mqRM = matchMedia('(prefers-reduced-motion: reduce)');
+const coarse = matchMedia('(pointer: coarse)').matches;
 const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : mqDark.matches);
 let dark = isDark(), RM = mqRM.matches;
 root.classList.toggle('rm', RM);
@@ -491,6 +517,7 @@ const pitAt = (x) => W.pits.find((p) => x > p.x - 4 && x < p.x + p.w + 4);
 /* ---------- dom refs ---------- */
 const stage = $('#stage'), cv = $('#game'), ctx = cv.getContext('2d');
 const el = { cy: $('#cy'), cd: $('#cd'), ct: $('#ct'), cc: $('#cc'), day: $('#hday'), repos: $('#hrepos'), streak: $('#hstreak'), title: $('#title'), hint: $('#hint') };
+if (coarse) el.hint.innerHTML = '<span>tap to jump</span><span class="sep">·</span><span>hold right side to sprint</span>';
 
 /* ---------- canvas sizing ---------- */
 let Wd = 1, Hd = 1, dpr = 1, zoom = 1, vw = 1, vh = 1, gy = 1, rx = .3, hs = 1, phone = false;
@@ -509,7 +536,7 @@ function resize() {
 
 /* ---------- state ---------- */
 const R = { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, phase: 0, pit: null, bubble: 0, sqT: 0, sqX: 1, sqY: 1 };
-const input = { jump: false, sprintKey: false };
+const input = { jump: false, sprintKey: false, sprintTouch: false };
 let camX = -300, tread = 0, simT = 0, runTime = 0, finished = false, finalTime = 0, streak = 0, frozen = false, debt = 0;
 let comboDone = false, bannerDone = false, started = false, running = false;
 const litAt = new Float32Array(STREAK).fill(-9);
@@ -530,7 +557,7 @@ function step(dt, auto, silent) {
   simT += dt;
   if (!finished) runTime += dt;
   if (auto) autopilot();
-  const sprint = !auto && input.sprintKey;
+  const sprint = !auto && (input.sprintKey || input.sprintTouch);
   const onTread = R.x >= W.treadX;
   const target = onTread ? (sprint ? 400 : JOG) : (sprint ? SPRINT : RUN);
   R.speed += (target - R.speed) * Math.min(1, dt * 7);
@@ -1183,12 +1210,16 @@ addEventListener('keyup', (e) => {
   if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W') releaseJump();
   if (k === 'ArrowRight' || k === 'd' || k === 'D') input.sprintKey = false;
 });
-addEventListener('blur', () => { input.sprintKey = input.jump = false; });
+addEventListener('blur', () => { input.sprintKey = input.sprintTouch = input.jump = false; });
+let sprintT = 0;
 cv.addEventListener('pointerdown', (e) => {
   if (e.button > 0) return;
   pressJump();
+  const r = cv.getBoundingClientRect();
+  clearTimeout(sprintT);
+  if (e.clientX - r.left > r.width * .6) sprintT = setTimeout(() => { input.sprintTouch = true; }, 180);
 });
-const endPointer = () => { releaseJump(); };
+const endPointer = () => { releaseJump(); clearTimeout(sprintT); input.sprintTouch = false; };
 addEventListener('pointerup', endPointer);
 addEventListener('pointercancel', endPointer);
 cv.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -1276,7 +1307,7 @@ D.addEventListener('visibilitychange', () => {
   if (D.hidden) {
     hiddenAt = Date.now(); wasLive = stageRatio > .2 && !frozen;
     clearTimeout(titleT); D.title = 'still running... 00:00';
-    input.jump = input.sprintKey = false;
+    input.jump = input.sprintKey = input.sprintTouch = false;
     saveRun(); tick1();
   } else {
     const away = Date.now() - (hiddenAt || Date.now());
