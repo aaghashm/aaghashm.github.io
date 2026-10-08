@@ -180,6 +180,7 @@ h2.big:focus{outline:none}
 .b-fast{background:rgba(179,107,255,.14);color:var(--fastest-ink);box-shadow:inset 0 0 0 1px rgba(179,107,255,.35)}
 .b-gap{background:rgba(100,116,139,.12);color:var(--slate-ink);box-shadow:inset 0 0 0 1px rgba(100,116,139,.3)}
 .b-streak{background:var(--accent);color:#1a1a1a}
+.b-new{background:rgba(58,208,107,.16);color:var(--fg);box-shadow:inset 0 0 0 1px rgba(58,208,107,.45)}
 .lap.hero{background:linear-gradient(90deg,var(--accent-soft),transparent 75%);border-bottom-color:transparent;border-radius:0 0 14px 14px}
 .lap.hero::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:3px;background:var(--accent)}
 .lap.hero .lap-name{font-weight:700;font-size:21px}
@@ -328,8 +329,9 @@ const BASE = [
   ['2025-01-20', 'App-Releases', null, 'i release open source apps here!'],
   ['2025-02-24', 'formality', 'Jupyter', 'models and inference.'],
   ['2026-06-28', 'persistent-stopwatch', 'TypeScript', 'a stopwatch that keeps counting after you close the tab.'],
-].map(([date, name, lang, blurb]) => ({ date, name, lang, blurb }));
+].map(([date, name, lang, blurb]) => ({ date, name, lang, blurb, isNew: false }));
 const HERO = 'persistent-stopwatch';
+const SKIP_NAMES = new Set(['aaghashm', 'aaghashm.github.io']);
 
 /* ---------- utils ---------- */
 const pad = (n, l = 2) => String(n).padStart(l, '0');
@@ -399,8 +401,9 @@ const palY = (y) => clamp(y, 2022, 2026);
 const BLEND = 520;
 
 /* ---------- world ---------- */
+let extras = [];
 let W = null;
-function buildWorld() {
+function buildWorld(prev) {
   const today = Math.max(todayIdx(), parseDay(STREAK_START) + STREAK - 1);
   const base = [];
   let x = 700, p = null;
@@ -414,8 +417,13 @@ function buildWorld() {
   const sw = base[base.length - 1];
   const w = { base, today, sDay: sw.day, bridgeStart: sw.x - 14 };
   w.bridgeEnd = w.bridgeStart + STREAK * TILE;
-  w.flagX = w.bridgeEnd + 900;
-  w.blocks = base;
+  const outro = Math.max(900, 420 + extras.length * 300);
+  w.flagX = w.bridgeEnd + outro;
+  const ex = extras.map((r, k) => {
+    const b = { r, day: parseDay(r.date), x: w.bridgeEnd + 240 + k * 300, idx: base.length + k, L: langInfo(r.lang), gold: false, hit: false, missed: false, hitT: -9, missT: -9, size: 46 };
+    b.rgb = hex(b.L.c); return b;
+  });
+  w.blocks = base.concat(ex);
   // quiet stretches, posts and pits
   w.posts = []; w.pits = []; w.quiet = [];
   for (let i = 1; i < base.length; i++) {
@@ -438,6 +446,10 @@ function buildWorld() {
   w.years = [{ y: 2022, x: 260 }];
   for (let y = 2023; y <= dayYear(today); y++) { const d = parseDay(y + '-01-01'); if (d <= today) w.years.push({ y, x: dayToX(d) }); }
   setTread();
+  if (prev) {
+    const st = new Map(prev.blocks.map((b) => [b.r.name, b]));
+    w.blocks.forEach((b) => { const o = st.get(b.r.name); if (o) { b.hit = o.hit; b.missed = o.missed; b.hitT = o.hitT; b.missT = o.missT; } });
+  }
   return w;
 }
 function setTread() { if (W) W.treadX = W.flagX + clamp(vw * .2, 60, 260); }
@@ -942,6 +954,7 @@ function drawBlock(b) {
     ctx.fillText(b.L.t, cx, cy + 1);
   }
   if (b.L === LANGS.none) { ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1; rr(cx - s / 2 + .5, top + .5, s - 1, s - 1, s * .24); ctx.stroke(); }
+  if (b.r.isNew && !b.hit) { ctx.fillStyle = '#3ad06b'; rr(cx - 16, top - 20, 32, 15, 7); ctx.fill(); ctx.fillStyle = '#0b2a14'; ctx.font = '500 10px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('new', cx, top - 12); }
   ctx.globalAlpha = 1;
 }
 function check(x, y, r, c) {
@@ -1182,7 +1195,7 @@ cv.addEventListener('contextmenu', (e) => e.preventDefault());
 
 /* ---------- laps list ---------- */
 function lapData() {
-  const all = BASE.map((r) => ({ ...r, day: parseDay(r.date) })).sort((a, b) => a.day - b.day);
+  const all = BASE.concat(extras).map((r) => ({ ...r, day: parseDay(r.date) })).sort((a, b) => a.day - b.day);
   all.forEach((r, i) => { r.n = i + 1; r.split = i ? r.day - all[i - 1].day : 0; });
   return all;
 }
@@ -1200,7 +1213,7 @@ function renderLaps() {
   const html = L.map((r) => {
     const li = langInfo(r.lang);
     const fast = r.n > 1 && r.split === min, gap = r.n > 1 && r.split === max;
-    const badges = r.name === HERO ? '<span class="badge b-streak">110-day streak</span>' : '';
+    const badges = (r.name === HERO ? '<span class="badge b-streak">110-day streak</span>' : '') + (r.isNew ? '<span class="badge b-new">new</span>' : '');
     const sb = (fast ? '<span class="badge b-fast">fastest' + (tie ? ' (tied)' : '') + '</span>' : '') + (gap ? '<span class="badge b-gap">longest gap</span>' : '');
     return '<li class="lap' + (r.name === HERO ? ' hero' : '') + '" data-name="' + esc(r.name) + '">' +
       '<span class="lap-n"><span class="gd" aria-hidden="true"></span>' + pad(r.n) + '<span class="sr gd-sr"></span></span>' +
@@ -1216,7 +1229,7 @@ function renderLaps() {
   $('#facts').innerHTML = '<li><b>laps</b> ' + L.length + '</li><li><b>fastest</b> +' + min + 'd' + (tie ? ' (tied)' : '') + '</li><li><b>longest gap</b> +' + max + 'd</li><li><b>busiest year</b> ' + busy[0] + ', ' + busy[1] + ' repos</li>';
 }
 function renderFoot() {
-  const n = BASE.length;
+  const n = BASE.length + extras.length;
   $('#fstat').innerHTML = n + ' repos · <b>' + fmtInt(todayIdx()) + '</b> days · 0 stops' + (gag.n ? ' <span>(you tried ' + gag.n + ')</span>' : '');
 }
 
@@ -1285,6 +1298,26 @@ function tick1() {
 }
 addEventListener('pagehide', () => { saveRun(); V.lastSeen = Date.now(); store.set('sr:visitor', V); });
 
+/* ---------- live repos ---------- */
+function fetchLive() {
+  if (!window.fetch) return;
+  const ac = window.AbortController ? new AbortController() : null;
+  if (ac) setTimeout(() => ac.abort(), 8000);
+  fetch('https://api.github.com/users/aaghashm/repos?per_page=100&sort=created', ac ? { signal: ac.signal } : undefined)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (!Array.isArray(data)) return;
+      const known = new Set(BASE.map((r) => r.name.toLowerCase()));
+      const add = data.filter((r) => r && r.name && !r.fork && !known.has(r.name.toLowerCase()) && !SKIP_NAMES.has(r.name.toLowerCase()) && /^\d{4}-\d{2}-\d{2}/.test(r.created_at || ''))
+        .map((r) => ({ date: r.created_at.slice(0, 10), name: r.name, lang: r.language === 'Jupyter Notebook' ? 'Jupyter' : r.language || null, blurb: (r.description || '').toLowerCase(), isNew: true }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      if (!add.length) return;
+      extras = add;
+      W = buildWorld(W); countHits(); renderLaps(); renderFoot();
+    })
+    .catch(() => {});
+}
+
 /* ---------- visibility of the stage ---------- */
 if ('IntersectionObserver' in window) {
   new IntersectionObserver((es) => { for (const e of es) { stageRatio = e.intersectionRatio; stageOn = e.isIntersecting; } }, { threshold: [0, .1, .25, .5, .75, 1] }).observe(stage);
@@ -1305,6 +1338,7 @@ if (welcome || resumed) {
 updateClock(); updateHUD(); drawFavicon(); tick1();
 setInterval(tick1, 1000);
 requestAnimationFrame((t) => { last = t; frame(t); });
+fetchLive();
 })();
 </script>
 </body>
