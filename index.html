@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+<script>document.documentElement.classList.add('js')</script>
 <style>
 @font-face{font-family:"SG Fallback";src:local("Arial"),local("Helvetica Neue"),local("Helvetica");size-adjust:104%;ascent-override:90%;descent-override:27%;line-gap-override:0%}
 @font-face{font-family:"JB Fallback";src:local("Menlo"),local("Consolas"),local("Courier New");size-adjust:100%;ascent-override:100%;descent-override:28%;line-gap-override:0%}
@@ -55,6 +56,9 @@ a{color:inherit}
 /* ---------- stage ---------- */
 .stage{position:relative;height:100vh;height:100svh;min-height:520px;overflow:hidden;background:var(--sky);isolation:isolate;outline:none}
 .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;cursor:pointer}
+.poster{position:absolute;inset:0;width:100%;height:100%;display:block}
+.js .poster{display:none}
+html:not(.js) .stage canvas,html:not(.js) .js-only{display:none!important}
 
 .hud-top{position:absolute;inset:0 0 auto 0;z-index:4;display:grid;grid-template-columns:1fr auto;grid-template-areas:"who clock" "who ctl";column-gap:20px;row-gap:10px;align-items:start;padding:26px 30px;pointer-events:none}
 .hud-top a,.hud-top button{pointer-events:auto}
@@ -192,6 +196,7 @@ h2.big:focus{outline:none}
 .sw-card{position:relative;border-radius:16px;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);overflow:hidden;aspect-ratio:16/10}
 .sw-card::before{content:"loading the stopwatch...";position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font:500 13px/1 var(--mono)}
 .sw-card iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+.sw-card noscript{display:contents}
 .mini{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;background:radial-gradient(120% 90% at 50% 0%,var(--accent-soft),transparent 60%),var(--card)}
 .mini[hidden]{display:none}
 .mini p{margin:0}
@@ -249,12 +254,24 @@ h2.big:focus{outline:none}
 <body>
 
 <header class="stage" id="stage" tabindex="-1">
+  <svg class="poster" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    <defs><linearGradient id="psky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfdcff"/><stop offset="1" stop-color="#fef3e2"/></linearGradient></defs>
+    <rect width="1440" height="900" fill="url(#psky)"/>
+    <circle cx="1130" cy="250" r="54" fill="#fff" opacity=".6"/>
+    <text x="720" y="660" text-anchor="middle" font-family="Space Grotesk, Arial, sans-serif" font-weight="700" font-size="360" fill="#1a1a1a" opacity=".06">2022</text>
+    <path d="M0 700 L120 560 L220 640 L360 470 L470 620 L600 520 L720 650 L860 480 L980 610 L1100 500 L1240 640 L1360 540 L1440 600 V720 H0Z" fill="#c9d6ee"/>
+    <path d="M0 720 C160 640 300 650 460 690 S760 640 940 680 S1260 650 1440 690 V720 H0Z" fill="#9fb6dc"/>
+    <rect y="712" width="1440" height="188" fill="#4f6a99"/><rect y="712" width="1440" height="6" fill="#8aa6d6"/>
+    <g><rect x="580" y="570" width="46" height="46" rx="11" fill="#3b82f6"/><rect x="760" y="570" width="46" height="46" rx="11" fill="#f97316"/><rect x="940" y="570" width="46" height="46" rx="11" fill="#eab308"/><rect x="1180" y="552" width="64" height="64" rx="14" fill="#f5b324"/><circle cx="1212" cy="584" r="18" fill="#fff"/><path d="M1212 584 V571" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round"/></g>
+    <g transform="translate(430 712)" fill="none" stroke="#1f1f27" stroke-width="4" stroke-linecap="round"><path d="M0 -12 L7 -2 M0 -12 L-6 -3"/><path d="M-1 -27 L-24 -30 L-34 -24" stroke="#3b82f6"/></g>
+    <g transform="translate(430 712)" fill="#1f1f27"><rect x="-6.5" y="-28" width="13" height="18" rx="6.5"/><circle cx="1.5" cy="-34" r="7.5"/></g>
+  </svg>
   <canvas id="game" role="img" aria-label="a little runner crossing aaghash's github timeline from 2022 to today"></canvas>
 
   <div class="hud-top">
     <div class="ctl">
       <a class="skip" href="#laps">just the list ↓</a>
-      <div class="stopwrap">
+      <div class="stopwrap js-only">
         <button class="stopbtn" id="stopbtn" type="button" aria-label="stop the clock (hold)" aria-keyshortcuts="s" aria-describedby="stoptip">
           <svg viewBox="0 0 44 44" aria-hidden="true"><circle class="ring-bg" cx="22" cy="22" r="18"/><circle class="ring" cx="22" cy="22" r="18"/><rect class="crown" x="19.5" y="9.5" width="5" height="3" rx="1"/><rect class="sq" x="16" y="17" width="12" height="12" rx="2.5"/></svg>
         </button>
@@ -266,17 +283,17 @@ h2.big:focus{outline:none}
       <div class="role">python dev</div>
     </div>
     <div class="clockbox">
-      <div class="clock-label"><span class="live" aria-hidden="true"></span>since 19 sep 2022</div>
-      <p class="clock" id="clock" aria-hidden="true"><span id="cy">0</span><span class="u">y</span><span id="cd">0</span><span class="u">d</span><span id="ct">00:00:00</span><span class="cs" id="cc">.00</span></p>
+      <div class="clock-label"><span class="live js-only" aria-hidden="true"></span>since 19 sep 2022</div>
+      <p class="clock js-only" id="clock" aria-hidden="true"><span id="cy">0</span><span class="u">y</span><span id="cd">0</span><span class="u">d</span><span id="ct">00:00:00</span><span class="cs" id="cc">.00</span></p>
     </div>
   </div>
 
   <div class="title" id="title">
     <h1>aaghash murugesan. <em>still running.</em></h1>
-    <div class="hint" id="hint"><span><kbd>space</kbd> / tap to jump</span><span class="sep">·</span><span>hold <kbd>→</kbd> to sprint</span><span class="sep">·</span><span><kbd>s</kbd> to stop</span></div>
+    <div class="hint js-only" id="hint"><span><kbd>space</kbd> / tap to jump</span><span class="sep">·</span><span>hold <kbd>→</kbd> to sprint</span><span class="sep">·</span><span><kbd>s</kbd> to stop</span></div>
   </div>
 
-  <div class="hud-bot" aria-hidden="true">
+  <div class="hud-bot js-only" aria-hidden="true">
     <span class="chip" id="hday">day 0 · 19 sep 2022</span>
     <span class="chip" id="hrepos">repos 0/16</span>
     <span class="chip streak" id="hstreak" hidden>streak 0/110</span>
@@ -316,9 +333,31 @@ h2.big:focus{outline:none}
       <p class="eyebrow">the laps</p>
       <h2 class="big" id="laps" tabindex="-1">every repo, timed.</h2>
       <p class="lede">each split is the time since the repo before it. same data as the game, minus the jumping.</p>
-      <ul class="facts" id="facts"></ul>
+      <ul class="facts" id="facts">
+        <li><b>laps</b> 16</li>
+        <li><b>fastest</b> +1d (tied)</li>
+        <li><b>longest gap</b> +489d</li>
+        <li><b>busiest year</b> 2024, 6 repos</li>
+      </ul>
       <div class="laphead" aria-hidden="true"><span>lap</span><span>repo</span><span>language</span><span>created</span><span>split</span></div>
-      <ol class="laps" id="lapslist"></ol>
+      <ol class="laps" id="lapslist">
+        <li class="lap" data-name="PYTHON-TEXT-TO-SPEECH"><span class="lap-n"><span class="gd" aria-hidden="true"></span>01<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/PYTHON-TEXT-TO-SPEECH" target="_blank" rel="noopener">python-text-to-speech</a></span><span class="lap-blurb">the first repo. lap one.</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#3b82f6"></i>python</span><span class="lap-date">19 sep 2022</span></span><span class="lap-split"><span>start</span></span></li>
+        <li class="lap" data-name="MACHINE-LEARNING-PROJECTS"><span class="lap-n"><span class="gd" aria-hidden="true"></span>02<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/MACHINE-LEARNING-PROJECTS" target="_blank" rel="noopener">machine-learning-projects</a></span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#f97316"></i>jupyter</span><span class="lap-date">20 sep 2022</span></span><span class="lap-split"><span class="badge b-fast">fastest (tied)</span><span>+1d</span></span></li>
+        <li class="lap" data-name="PYTHON-BASICS-NOTES"><span class="lap-n"><span class="gd" aria-hidden="true"></span>03<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/PYTHON-BASICS-NOTES" target="_blank" rel="noopener">python-basics-notes</a></span><span class="lap-blurb">python notes shared with a telegram group.</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#f97316"></i>jupyter</span><span class="lap-date">23 sep 2022</span></span><span class="lap-split"><span>+3d</span></span></li>
+        <li class="lap" data-name="SIMPLE-PYTHON-PROJECTS"><span class="lap-n"><span class="gd" aria-hidden="true"></span>04<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/SIMPLE-PYTHON-PROJECTS" target="_blank" rel="noopener">simple-python-projects</a></span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#f97316"></i>jupyter</span><span class="lap-date">24 sep 2022</span></span><span class="lap-split"><span class="badge b-fast">fastest (tied)</span><span>+1d</span></span></li>
+        <li class="lap" data-name="CODESOFT"><span class="lap-n"><span class="gd" aria-hidden="true"></span>05<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/CODESOFT" target="_blank" rel="noopener">codesoft</a></span><span class="lap-blurb">dataset notebooks from the codsoft internship.</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#f97316"></i>jupyter</span><span class="lap-date">28 nov 2023</span></span><span class="lap-split"><span>+430d</span></span></li>
+        <li class="lap" data-name="react_irc"><span class="lap-n"><span class="gd" aria-hidden="true"></span>06<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/react_irc" target="_blank" rel="noopener">react_irc</a></span><span class="lap-blurb">react tasks.</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#ef4444"></i>html</span><span class="lap-date">9 dec 2023</span></span><span class="lap-split"><span>+11d</span></span></li>
+        <li class="lap" data-name="Tableau"><span class="lap-n"><span class="gd" aria-hidden="true"></span>07<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/Tableau" target="_blank" rel="noopener">tableau</a></span><span class="lap-blurb">tableau dashboards.</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#14b8a6"></i>tableau</span><span class="lap-date">14 jan 2024</span></span><span class="lap-split"><span>+36d</span></span></li>
+        <li class="lap" data-name="CGPA-BUDDY"><span class="lap-n"><span class="gd" aria-hidden="true"></span>08<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/CGPA-BUDDY" target="_blank" rel="noopener">cgpa-buddy</a></span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#eab308"></i>javascript</span><span class="lap-date">3 feb 2024</span></span><span class="lap-split"><span>+20d</span></span></li>
+        <li class="lap" data-name="restapiirc"><span class="lap-n"><span class="gd" aria-hidden="true"></span>09<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/restapiirc" target="_blank" rel="noopener">restapiirc</a></span><span class="lap-blurb">a rest api.</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#b45309"></i>java</span><span class="lap-date">27 apr 2024</span></span><span class="lap-split"><span>+84d</span></span></li>
+        <li class="lap" data-name="IRC_Student-E-Learning"><span class="lap-n"><span class="gd" aria-hidden="true"></span>10<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/IRC_Student-E-Learning" target="_blank" rel="noopener">irc_student-e-learning</a></span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#e5e7eb"></i>no language</span><span class="lap-date">23 jul 2024</span></span><span class="lap-split"><span>+87d</span></span></li>
+        <li class="lap" data-name="vehicle_repair_app"><span class="lap-n"><span class="gd" aria-hidden="true"></span>11<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/vehicle_repair_app" target="_blank" rel="noopener">vehicle_repair_app</a></span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#eab308"></i>javascript</span><span class="lap-date">6 aug 2024</span></span><span class="lap-split"><span>+14d</span></span></li>
+        <li class="lap" data-name="mlops-zoomcamp"><span class="lap-n"><span class="gd" aria-hidden="true"></span>12<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/mlops-zoomcamp" target="_blank" rel="noopener">mlops-zoomcamp</a></span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#f97316"></i>jupyter</span><span class="lap-date">17 nov 2024</span></span><span class="lap-split"><span>+103d</span></span></li>
+        <li class="lap" data-name="DSA-PREP"><span class="lap-n"><span class="gd" aria-hidden="true"></span>13<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/DSA-PREP" target="_blank" rel="noopener">dsa-prep</a></span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#ef4444"></i>html</span><span class="lap-date">3 jan 2025</span></span><span class="lap-split"><span>+47d</span></span></li>
+        <li class="lap" data-name="App-Releases"><span class="lap-n"><span class="gd" aria-hidden="true"></span>14<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/App-Releases" target="_blank" rel="noopener">app-releases</a></span><span class="lap-blurb">i release open source apps here!</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#e5e7eb"></i>no language</span><span class="lap-date">20 jan 2025</span></span><span class="lap-split"><span>+17d</span></span></li>
+        <li class="lap" data-name="formality"><span class="lap-n"><span class="gd" aria-hidden="true"></span>15<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/formality" target="_blank" rel="noopener">formality</a></span><span class="lap-blurb">models and inference.</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#f97316"></i>jupyter</span><span class="lap-date">24 feb 2025</span></span><span class="lap-split"><span>+35d</span></span></li>
+        <li class="lap hero" data-name="persistent-stopwatch"><span class="lap-n"><span class="gd" aria-hidden="true"></span>16<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/persistent-stopwatch" target="_blank" rel="noopener">persistent-stopwatch</a><span class="badge b-streak">110-day streak</span></span><span class="lap-blurb">a stopwatch that keeps counting after you close the tab.</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#8b5cf6"></i>typescript</span><span class="lap-date">28 jun 2026</span></span><span class="lap-split"><span class="badge b-gap">longest gap</span><span>+489d</span></span></li>
+      </ol>
     </div>
   </section>
 
@@ -336,7 +375,8 @@ h2.big:focus{outline:none}
         </div>
       </div>
       <div class="sw-card" id="swcard">
-        <div class="mini" id="mini" hidden>
+        <noscript><iframe src="https://aaghashm.github.io/persistent-stopwatch/" title="persistent stopwatch, live" loading="lazy"></iframe></noscript>
+        <div class="mini js-only" id="mini" hidden>
           <p class="mini-note" id="mininote">the full app isn't hosted right now, so here's a tiny one.</p>
           <p class="mini-time" id="minitime" aria-live="off">00:00:00<span>.00</span></p>
           <p class="mini-sub" id="minisub">press start. close the tab. come back.</p>
@@ -359,7 +399,7 @@ h2.big:focus{outline:none}
     <a href="https://github.com/aaghashm" target="_blank" rel="noopener">github.com/aaghashm ↗</a>
     <span id="fstat">16 repos · since 19 sep 2022 · 0 stops</span>
     <span class="ph"><i aria-hidden="true"></i>built on phoenix</span>
-    <span style="flex-basis:100%">you've been here <b id="vtotal">0s</b> total.</span>
+    <span class="js-only" style="flex-basis:100%">you've been here <b id="vtotal">0s</b> total.</span>
   </div>
 </footer>
 
