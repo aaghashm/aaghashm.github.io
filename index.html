@@ -414,6 +414,7 @@ const D = document, root = D.documentElement;
 const $ = (s) => D.querySelector(s);
 const MON = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 const DAY0 = Date.UTC(2022, 8, 19);
+const T0 = Date.UTC(2022, 8, 19, 11, 45, 9); // first repo created, 2022-09-19T11:45:09Z
 const STEP = 1 / 120, RUN = 300, SPRINT = 540, JOG = 220, GRAV = 2600, JUMPV = 900, COYOTE = .09, BUFFER = .12;
 const STREAK_START = '2026-06-28', STREAK = 110, TILE = 28;
 const SANS = "'Space Grotesk','SG Fallback',system-ui,sans-serif", MONO = "'JetBrains Mono','JB Fallback',ui-monospace,Menlo,monospace";
@@ -1168,11 +1169,9 @@ function clockMs() {
 const cache = {};
 const setT = (node, k, v) => { if (cache[k] !== v) { cache[k] = v; node.textContent = v; } };
 function updateClock() {
-  const ms = clockMs(), now = new Date(ms);
-  let y = now.getFullYear() - 2022, an = new Date(now.getFullYear(), 8, 19);
-  if (now < an) { y--; an = new Date(now.getFullYear() - 1, 8, 19); }
-  const d = Math.round((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(an.getFullYear(), 8, 19)) / 864e5);
-  const t = ms - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const ms = Math.max(T0, clockMs()), anAt = (yr) => Date.UTC(yr, 8, 19, 11, 45, 9);
+  let yr = new Date(ms).getUTCFullYear(); if (ms < anAt(yr)) yr--;
+  const rem = ms - anAt(yr), d = Math.floor(rem / 864e5), t = rem - d * 864e5, y = yr - 2022;
   setT(el.cy, 'y', String(y)); setT(el.cd, 'd', String(d));
   setT(el.ct, 't', pad(Math.floor(t / 3.6e6)) + ':' + pad(Math.floor(t / 6e4) % 60) + ':' + pad(Math.floor(t / 1e3) % 60));
   setT(el.cc, 'c', '.' + pad(Math.floor(t / 10) % 100));
