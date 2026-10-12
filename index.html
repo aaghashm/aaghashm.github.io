@@ -632,7 +632,7 @@ function resize() {
 const R = { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, phase: 0, pit: null, bubble: 0, sqT: 0, sqX: 1, sqY: 1 };
 const input = { jump: false, sprintKey: false, sprintTouch: false };
 let camX = -300, tread = 0, simT = 0, runTime = 0, finished = false, finalTime = 0, streak = 0, frozen = false, debt = 0;
-let comboDone = false, bannerDone = false, started = false, running = false;
+let comboDone = false, bannerDone = false, started = false, running = false, ffwd = false, captionDone = false;
 const litAt = new Float32Array(STREAK).fill(-9);
 const parts = [], captions = [], embers = [];
 const NEUTRAL = hex(LANGS.none.c);
@@ -649,7 +649,7 @@ resetScarf();
 function squash(x, y) { if (RM) return; R.sqX = x; R.sqY = y; R.sqT = .12; }
 function step(dt, auto, silent) {
   simT += dt;
-  if (!finished) runTime += dt;
+  if (!finished && !ffwd) runTime += dt;
   if (auto) autopilot();
   const sprint = !auto && (input.sprintKey || input.sprintTouch);
   const onTread = R.x >= W.treadX;
@@ -675,7 +675,7 @@ function step(dt, auto, silent) {
     }
   } else if (overPit(R.x)) { R.ground = false; R.vy = 0; R.air = 1; R.cut = true; }
   collide(silent);
-  if (R.x >= W.bridgeStart) {
+  if (R.x >= W.bridgeStart && W.base[W.base.length - 1].hit) {
     const n = Math.min(STREAK, Math.floor((R.x - W.bridgeStart) / TILE) + 1);
     while (streak < n) { litAt[streak] = simT; streak++; if (streak === STREAK && !bannerDone) { bannerDone = true; if (!silent) showBanner(); } }
   }
@@ -734,7 +734,7 @@ function hitBlock(b, silent) {
 }
 function missBlock(b, silent) {
   b.missed = true; b.missT = simT;
-  if (!silent) captions.push({ x: b.x, t: simT });
+  if (!silent && !captionDone) { captionDone = true; captions.push({ x: b.x, t: simT }); }
   lapDot(b.r.name, 'miss');
 }
 
@@ -809,9 +809,11 @@ function scarfStep(dt) {
     else { p.x += dx * f * .5; p.y += dy * f * .5; q.x -= dx * f * .5; q.y -= dy * f * .5; }
   }
 }
-function fastForward(sec) {
+function fastForward(sec, auto) {
   const n = Math.min(Math.floor(sec / STEP), 120 * 120);
-  for (let i = 0; i < n; i++) step(STEP, true, true);
+  ffwd = !auto;
+  for (let i = 0; i < n; i++) step(STEP, !!auto, true);
+  ffwd = false;
   R.sqT = 0; parts.length = 0; captions.length = 0;
   resetScarf();
   camX = R.x - vw * rx;
@@ -1207,8 +1209,9 @@ function showCard(b) {
   clearTimeout(cardT); cardT = setTimeout(() => card.classList.remove('on'), 4000);
   announce('got lap ' + (info ? info.n : '') + ': ' + b.r.name.toLowerCase() + ', ' + b.L.label + ', ' + dayDate(b.day) + '.');
 }
-function pop() { const p = $('#pop'); p.classList.remove('on'); void p.offsetWidth; p.classList.add('on'); announce('combo x4!'); }
-function showBanner() { const b = $('#banner'); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); announce('110 days, no stops.'); }
+let popT = 0, bannerT = 0;
+function pop() { const p = $('#pop'); p.classList.remove('on'); void p.offsetWidth; p.classList.add('on'); clearTimeout(popT); popT = setTimeout(() => p.classList.remove('on'), 1400); announce('combo x4!'); }
+function showBanner() { const b = $('#banner'); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('on'), 3200); announce('110 days, no stops.'); }
 let titleGone = false;
 function hideTitle() { if (titleGone) return; titleGone = true; el.title.classList.add('gone'); }
 setTimeout(hideTitle, 6000);
@@ -1236,6 +1239,7 @@ function resetRun() {
   Object.assign(R, { x: 0, y: 0, vy: 0, ground: true, coyote: 0, buffer: 0, cut: false, air: 0, speed: RUN, pit: null, bubble: 0, sqT: 0 });
   tread = 0; runTime = 0; finished = false; pendingFinish = false; streak = 0; litAt.fill(-9);
   comboDone = false; bannerDone = false;
+  clearTimeout(popT); clearTimeout(bannerT); $('#pop').classList.remove('on'); $('#banner').classList.remove('on');
   W.blocks.forEach((b) => { b.hit = b.missed = false; b.hitT = b.missT = -9; });
   countHits(); parts.length = 0; captions.length = 0;
   scarfTo = NEUTRAL.slice(); scarfCol = NEUTRAL.slice(); resetScarf();
@@ -1372,7 +1376,7 @@ function restore() {
   W.blocks.forEach((b) => { if (hs2.has(b.r.name)) { b.hit = true; scarfTo = b.rgb.slice(); } else if (ms2.has(b.r.name) || b.x < R.x - 40) b.missed = true; });
   scarfCol = scarfTo.slice();
   comboDone = W.base.slice(0, 4).every((b) => b.hit);
-  if (R.x >= W.bridgeStart) { streak = Math.min(STREAK, Math.floor((R.x - W.bridgeStart) / TILE) + 1); litAt.fill(-9, 0, streak); bannerDone = streak >= STREAK; }
+  if (R.x >= W.bridgeStart && W.base[W.base.length - 1].hit) { streak = Math.min(STREAK, Math.floor((R.x - W.bridgeStart) / TILE) + 1); litAt.fill(-9, 0, streak); bannerDone = streak >= STREAK; }
   countHits(); resetScarf(); camX = R.x - vw * rx;
   return 'you left at day ' + fmtInt(Math.floor(xToDay(R.x))) + '. resuming.';
 }
@@ -1404,7 +1408,7 @@ D.addEventListener('visibilitychange', () => {
     const away = Date.now() - (hiddenAt || Date.now());
     D.title = 'told you.'; clearTimeout(titleT); titleT = setTimeout(() => (D.title = BASE_TITLE), 2500);
     last = performance.now();
-    if (wasLive && !finished && away > 1000) fastForward(Math.min(away / 1000, 120));
+    if (wasLive && !finished && away > 1000) fastForward(Math.min(away / 1000, 120), false);
     if (RM) updateClock();
   }
 });
@@ -1480,7 +1484,7 @@ if ('ResizeObserver' in window) new ResizeObserver(resize).observe(stage); else 
 resize();
 renderLaps(); renderFoot();
 const resumed = restore();
-if (FF0) fastForward(FF0);
+if (FF0) fastForward(FF0, true);
 if (welcome || resumed) {
   const lines = [];
   if (welcome) lines.push('welcome back. you left ' + dur(welcome) + " ago. the clock didn't care.");
