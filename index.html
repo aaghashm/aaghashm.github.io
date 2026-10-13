@@ -426,16 +426,19 @@ const STEP = 1 / 120, RUN = 300, SPRINT = 540, JOG = 220, GRAV = 2600, JUMPV = 9
 const STREAK_START = '2026-06-28', STREAK = 110, TILE = 28;
 const SANS = "'Space Grotesk','SG Fallback',system-ui,sans-serif", MONO = "'JetBrains Mono','JB Fallback',ui-monospace,Menlo,monospace";
 
+const ICON = (n) => 'https://cdn.jsdelivr.net/npm/devicon@2.16.0/icons/' + n + '/' + n + '-original.svg';
 const LANGS = {
-  Python: { c: '#3b82f6', t: 'py', label: 'python' },
-  Jupyter: { c: '#f97316', t: 'nb', label: 'jupyter' },
-  JavaScript: { c: '#eab308', t: 'js', label: 'javascript', dark: 1 },
-  TypeScript: { c: '#8b5cf6', t: 'ts', label: 'typescript' },
-  Java: { c: '#b45309', t: 'jv', label: 'java' },
-  HTML: { c: '#ef4444', t: '</>', label: 'html' },
+  Python: { c: '#3b82f6', t: 'py', label: 'python', icon: ICON('python') },
+  Jupyter: { c: '#f97316', t: 'nb', label: 'jupyter', icon: ICON('jupyter') },
+  JavaScript: { c: '#eab308', t: 'js', label: 'javascript', icon: ICON('javascript'), dark: 1 },
+  TypeScript: { c: '#8b5cf6', t: 'ts', label: 'typescript', icon: ICON('typescript') },
+  Java: { c: '#b45309', t: 'jv', label: 'java', icon: ICON('java') },
+  HTML: { c: '#ef4444', t: '</>', label: 'html', icon: ICON('html5') },
   Tableau: { c: '#14b8a6', t: 'tb', label: 'tableau' },
   none: { c: '#64748b', t: '?', label: 'no language' },
 };
+// load logos once; blocks fall back to the short text until they arrive
+for (const k in LANGS) if (LANGS[k].icon) { const im = new Image(); im.src = LANGS[k].icon; LANGS[k].img = im; }
 const BASE = [
   ['2022-09-19', 'PYTHON-TEXT-TO-SPEECH', 'Python', 'the first repo. lap one.'],
   ['2022-09-20', 'MACHINE-LEARNING-PROJECTS', 'Jupyter', ''],
@@ -1082,7 +1085,11 @@ function drawBlock(b) {
     ctx.fillStyle = '#e8590c'; ctx.beginPath(); ctx.arc(cx, cy + 2, 2.5, 0, 7); ctx.fill();
     if (b.hit) { ctx.fillStyle = '#3ad06b'; ctx.beginPath(); ctx.arc(cx + s / 2 - 4, top + 4, 9, 0, 7); ctx.fill(); check(cx + s / 2 - 4, top + 4, 5, '#fff'); }
   } else if (b.hit) check(cx, cy + 1, 10, b.L.dark ? '#1a1a1a' : '#fff');
-  else {
+  else if (b.L.img && b.L.img.complete && b.L.img.naturalWidth) {
+    // white plate so every logo reads on its own colours
+    ctx.fillStyle = '#f8fafc'; rr(cx - s / 2 + 5, top + 5, s - 10, s - 10, s * .2); ctx.fill();
+    const is = s * .56; ctx.drawImage(b.L.img, cx - is / 2, cy - is / 2, is, is);
+  } else {
     ctx.fillStyle = b.L.dark ? '#1a1a1a' : '#fff';
     ctx.font = '500 ' + (b.L.t.length > 2 ? 13 : 15) + 'px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(b.L.t, cx, cy + 1);
