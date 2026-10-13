@@ -201,6 +201,7 @@ h2.big:focus{outline:none}
 .sw-card::before{content:"loading the stopwatch...";position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font:500 13px/1 var(--mono)}
 .sw-card iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 .sw-card noscript{display:contents}
+.sw-nojs{position:absolute;inset:0;z-index:1;display:grid;place-items:center;padding:24px;text-align:center;background:var(--card);color:var(--muted);font:500 13px/1.5 var(--mono)}
 .mini{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;background:radial-gradient(120% 90% at 50% 0%,var(--accent-soft),transparent 60%),var(--card)}
 .mini[hidden]{display:none}
 .mini p{margin:0}
@@ -376,21 +377,21 @@ h2.big:focus{outline:none}
           <p class="lede">start a timer. close this page. come back. it'll still be going.</p>
         </div>
         <div class="sw-links">
-          <a class="btn primary" href="https://aaghashm.github.io/persistent-stopwatch/" target="_blank" rel="noopener">open it ↗</a>
+          <a class="btn primary" id="swopen" href="https://aaghashm.github.io/persistent-stopwatch/" target="_blank" rel="noopener" hidden>open it ↗</a>
           <a class="btn" href="https://github.com/aaghashm/persistent-stopwatch" target="_blank" rel="noopener">source</a>
         </div>
       </div>
       <div class="sw-card" id="swcard">
-        <noscript><iframe src="https://aaghashm.github.io/persistent-stopwatch/" title="persistent stopwatch, live" loading="lazy"></iframe></noscript>
+        <noscript><p class="sw-nojs">the pocket version needs javascript.<br>the source is on github.</p></noscript>
         <div class="mini js-only" id="mini" hidden>
-          <p class="mini-note" id="mininote">the full app isn't hosted right now, so here's a tiny one.</p>
+          <p class="mini-note" id="mininote">the pocket version</p>
           <p class="mini-time" id="minitime" aria-live="off">00:00:00<span>.00</span></p>
           <p class="mini-sub" id="minisub">press start. close the tab. come back.</p>
           <div class="mini-btns">
             <button class="btn primary" id="ministart" type="button">start</button>
             <button class="btn" id="minireset" type="button" hidden>reset</button>
           </div>
-          <p class="mini-foot">no stop button here either.</p>
+          <p class="mini-foot">reset, sure. pause? never.</p>
         </div>
       </div>
       <ul class="sw-feats" aria-label="what it does">
@@ -1480,6 +1481,7 @@ function showFrame() {
   const f = D.createElement('iframe');
   f.src = SW_URL; f.title = 'persistent stopwatch, live'; f.loading = 'lazy';
   $('#swcard').appendChild(f);
+  $('#swopen').hidden = false;
 }
 if (window.fetch) fetch(SW_URL, { cache: 'no-store' }).then((r) => (r.ok ? showFrame() : showMini())).catch(showMini);
 else showMini();
