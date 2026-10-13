@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>aaghash murugesan · still running</title>
-<meta name="description" content="aaghash murugesan, python dev. a little runner crossing every repo since 19 sep 2022. the clock never stops.">
+<title>Aaghash M · still running</title>
+<meta name="description" content="Aaghash M, python dev. a little runner crossing every repo since 19 sep 2022. the clock never stops.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#faf7f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
@@ -285,7 +285,7 @@ h2.big:focus{outline:none}
       </div>
     </div>
     <div class="who">
-      <p class="nm">aaghash murugesan</p>
+      <p class="nm">Aaghash M</p>
       <div class="role">python dev</div>
     </div>
     <div class="clockbox">
@@ -295,7 +295,7 @@ h2.big:focus{outline:none}
   </div>
 
   <div class="title" id="title">
-    <h1>aaghash murugesan. <em>still running.</em></h1>
+    <h1>Aaghash M. <em>still running.</em></h1>
     <div class="hint js-only" id="hint"><span><kbd>space</kbd> / tap to start + jump</span><span class="sep">·</span><span>hold <kbd>→</kbd> to sprint</span><span class="sep">·</span><span><kbd>s</kbd> to stop</span></div>
   </div>
 
@@ -1270,7 +1270,7 @@ $('#fagain').addEventListener('click', () => { closeFinish(); resetRun(); });
 $('#fclose').addEventListener('click', closeFinish);
 $('#fsw').addEventListener('click', () => closeFinish());
 $('#fcopy').addEventListener('click', (e) => {
-  const txt = 'i ran ' + fmtInt(W.today) + " days of aaghash's github in " + fmtRun(finalTime) + ". it wouldn't let me stop. aaghashm.github.io";
+  const txt = 'i ran ' + fmtInt(W.today) + " days of Aaghash's github in " + fmtRun(finalTime) + ". it wouldn't let me stop. aaghashm.github.io";
   const btn = e.currentTarget, done = () => { btn.textContent = 'copied'; setTimeout(() => (btn.textContent = 'copy'), 1600); };
   const fallback = () => { const ta = D.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0'; D.body.appendChild(ta); ta.select(); try { D.execCommand('copy'); } catch (x) { /* ignore */ } ta.remove(); done(); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
@@ -1401,7 +1401,7 @@ function restore() {
 }
 
 /* ---------- favicon + title ---------- */
-const BASE_TITLE = 'aaghash murugesan · still running';
+const BASE_TITLE = 'Aaghash M · still running';
 const fav = D.createElement('canvas'); fav.width = fav.height = 32;
 const fctx = fav.getContext('2d'), favLink = $('#favicon');
 function drawFavicon() {
