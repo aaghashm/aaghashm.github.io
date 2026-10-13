@@ -296,7 +296,7 @@ h2.big:focus{outline:none}
 
   <div class="title" id="title">
     <h1>aaghash murugesan. <em>still running.</em></h1>
-    <div class="hint js-only" id="hint"><span><kbd>space</kbd> / click to jump</span><span class="sep">·</span><span>hold <kbd>→</kbd> to sprint</span><span class="sep">·</span><span><kbd>s</kbd> to stop</span></div>
+    <div class="hint js-only" id="hint"><span><kbd>space</kbd> / tap to start + jump</span><span class="sep">·</span><span>hold <kbd>→</kbd> to sprint</span><span class="sep">·</span><span><kbd>s</kbd> to stop</span></div>
   </div>
 
   <div class="hud-bot js-only" aria-hidden="true">
@@ -534,7 +534,7 @@ function buildWorld(prev) {
   let x = 460, p = null;
   BASE.forEach((r, i) => {
     const day = parseDay(r.date);
-    if (p) x += Math.max(280, 120 * Math.sqrt(day - p.day));
+    if (p) x += Math.max(380, 120 * Math.sqrt(day - p.day));
     const b = { r, day, x, idx: i, L: langInfo(r.lang), gold: r.name === HERO, hit: false, missed: false, hitT: -9, missT: -9 };
     b.size = b.gold ? 64 : 46; b.rgb = hex(b.L.c);
     base.push(b); p = b;
@@ -663,7 +663,8 @@ function step(dt, auto, silent) {
   if (auto) autopilot();
   const sprint = !auto && (input.sprintKey || input.sprintTouch);
   const onTread = R.x >= W.treadX;
-  const target = onTread ? (sprint ? 400 : JOG) : (sprint ? SPRINT : RUN);
+  // stands still until the visitor presses jump, so nothing goes by unseen
+  const target = !started && !auto ? 0 : onTread ? (sprint ? 400 : JOG) : (sprint ? SPRINT : RUN);
   R.speed += (target - R.speed) * Math.min(1, dt * 7);
   if (R.bubble > 0) R.bubble -= dt;
   if (R.pit) { pitStep(dt); return; }
