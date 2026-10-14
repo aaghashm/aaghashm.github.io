@@ -328,7 +328,7 @@ h2.big:focus{outline:none}
       <div class="f-btns">
         <button class="btn primary" id="fagain" type="button">run again</button>
         <a class="btn" href="#laps" id="fsw">see all repos ↓</a>
-        <button class="btn" id="fcopy" type="button">copy</button>
+        <button class="btn" id="fcopy" type="button">share my run</button>
       </div>
     </div>
   </div>
@@ -1241,8 +1241,9 @@ $('#fclose').addEventListener('click', closeFinish);
 $('#fsw').addEventListener('click', () => closeFinish());
 $('#fcopy').addEventListener('click', (e) => {
   const txt = 'i ran ' + fmtInt(W.today) + " days of Aaghash's github in " + fmtRun(finalTime) + ". it wouldn't let me stop. aaghashm.github.io";
-  const btn = e.currentTarget, done = () => { btn.textContent = 'copied'; setTimeout(() => (btn.textContent = 'copy'), 1600); };
+  const btn = e.currentTarget, done = () => { btn.textContent = 'copied'; setTimeout(() => (btn.textContent = 'share my run'), 1600); };
   const fallback = () => { const ta = D.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0'; D.body.appendChild(ta); ta.select(); try { D.execCommand('copy'); } catch (x) { /* ignore */ } ta.remove(); done(); };
+  if (navigator.share) { navigator.share({ text: txt, url: 'https://aaghashm.github.io' }).catch(() => {}); return; }
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
 });
 
