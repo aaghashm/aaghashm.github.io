@@ -339,7 +339,7 @@ h2.big:focus{outline:none}
     <div class="wrap">
       <p class="eyebrow">the laps</p>
       <h2 class="big" id="laps" tabindex="-1">every repo, timed.</h2>
-      <p class="lede">each split is the time since the repo before it. same data as the game, minus the jumping.</p>
+      <p class="lede">each split is the time since the repo before it. these are only the public ones. most of my work lives in private repos, so the long gaps aren't empty.</p>
       <ul class="facts" id="facts">
         <li><b>laps</b> 10</li>
         <li><b>fastest</b> +1d (tied)</li>
@@ -525,6 +525,17 @@ function buildWorld(prev) {
     else if (ps.length) mids.push((ps[ps.length - 1].x + b.x) / 2);
     mids.forEach((m) => w.pits.push({ x: m - 55, w: 110 }));
   }
+  // private work: locked blocks spread through the long gaps, skipping pits and posts
+  w.locks = [];
+  for (let i = 1; i < base.length; i++) {
+    if (base[i].day - base[i - 1].day <= 30) continue;
+    const x0 = base[i - 1].x + 60, x1 = base[i].x - 60;
+    for (let x = x0 + 200; x < x1 - 160; x += 430) {
+      if (w.pits.some((pt) => x > pt.x - 140 && x < pt.x + pt.w + 140)) continue;
+      if (w.posts.some((ps) => Math.abs(ps.x - x) < 70)) continue;
+      w.locks.push({ x, hit: false, t: -9, i: w.locks.length });
+    }
+  }
   const cs = base.find((b) => b.r.name === 'CODESOFT');
   w.checkpoint = cs ? cs.x - 82 : null;
   if (w.checkpoint != null) w.posts = w.posts.filter((ps) => ps.x < w.checkpoint - 380 || ps.x > w.checkpoint + 40);
@@ -680,6 +691,10 @@ function pitStep(dt) {
   if (P.t >= .6) { R.pit = null; R.y = 0; R.vy = 0; R.ground = true; R.coyote = COYOTE; squash(1.15, .85); }
 }
 function collide(silent) {
+  if (!R.ground && !R.pit) for (const l of W.locks) {
+    if (l.hit || Math.abs(l.x - R.x) > 40) continue;
+    if (R.y + 42 > 86 && R.y < 96 + 52) { l.hit = true; l.t = simT; if (!silent) toast(LOCK_LINES[Math.min(lockN++, LOCK_LINES.length - 1)], 1800); }
+  }
   for (const b of W.blocks) {
     if (b.hit || b.missed) continue;
     if (b.x - R.x > 200) break;
@@ -819,6 +834,7 @@ function render() {
   for (const ps of W.posts) drawPost(ps.x, ps.label, T, 1);
   if (W.checkpoint != null) drawCheckpoint(T);
   drawFlag(T);
+  for (const l of W.locks) drawLock(l);
   for (const b of W.blocks) drawBlock(b);
   drawCaptions(T);
   drawFog(p);
@@ -1053,6 +1069,23 @@ function drawBlock(b) {
     ctx.fillText(b.L.t, cx, cy + 1);
   }
   if (b.r.isNew && !b.hit) { ctx.fillStyle = '#3ad06b'; rr(cx - 16, top - 20, 32, 15, 7); ctx.fill(); ctx.fillStyle = '#0b2a14'; ctx.font = '500 10px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('new', cx, top - 12); }
+  ctx.globalAlpha = 1;
+}
+const LOCK_LINES = ["private. can't show you this one.", 'also private.', 'yep, private too.', 'most of the work is in here. private.', 'locked. trust me, it runs.'];
+let lockN = 0;
+function drawLock(l) {
+  const sx = l.x - camX; if (sx < -80 || sx > vw + 80) return;
+  const s = 42, bob = RM ? 0 : Math.sin(simT * 2.1 + l.i * 2.3) * 3;
+  let bump = 0; if (l.hit) { const t = simT - l.t; if (t < .3) bump = Math.sin(t / .3 * Math.PI) * 7; }
+  const bottom = gy - 96 - bob - bump, top = bottom - s, cx = sx, cy = bottom - s / 2;
+  ctx.globalAlpha = l.hit ? .35 : .7;
+  ctx.fillStyle = dark ? '#2b3445' : '#cbd5e1'; rr(cx - s / 2, top + 3, s, s, 10); ctx.fill();
+  ctx.fillStyle = dark ? '#3a4558' : '#e2e8f0'; rr(cx - s / 2, top, s, s, 10); ctx.fill();
+  // padlock
+  const ink = dark ? '#94a3b8' : '#64748b';
+  ctx.strokeStyle = ink; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.arc(cx, cy - 3, 6, Math.PI, 0); ctx.stroke();
+  ctx.fillStyle = ink; rr(cx - 9, cy - 3, 18, 13, 3); ctx.fill();
+  ctx.fillStyle = dark ? '#3a4558' : '#e2e8f0'; ctx.beginPath(); ctx.arc(cx, cy + 3, 2, 0, 7); ctx.fill();
   ctx.globalAlpha = 1;
 }
 function check(x, y, r, c) {
@@ -1334,7 +1367,7 @@ function renderLaps() {
 }
 function renderFoot() {
   const n = BASE.length + extras.length;
-  $('#fstat').innerHTML = n + ' repos · <b>' + fmtInt(todayIdx()) + '</b> days · 0 stops' + (gag.n ? ' <span>(you tried ' + gag.n + ')</span>' : '');
+  $('#fstat').innerHTML = n + ' public repos · lots more private · <b>' + fmtInt(todayIdx()) + '</b> days · 0 stops' + (gag.n ? ' <span>(you tried ' + gag.n + ')</span>' : '');
 }
 
 /* ---------- visitor memory ---------- */
