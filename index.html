@@ -327,7 +327,7 @@ h2.big:focus{outline:none}
       <p class="f-best" id="fbest"></p>
       <div class="f-btns">
         <button class="btn primary" id="fagain" type="button">run again</button>
-        <a class="btn" href="#stopwatch" id="fsw">see the stopwatch ↓</a>
+        <a class="btn" href="#laps" id="fsw">see all repos ↓</a>
         <button class="btn" id="fcopy" type="button">copy</button>
       </div>
     </div>
@@ -368,37 +368,7 @@ h2.big:focus{outline:none}
     </div>
   </section>
 
-  <section id="stopwatch" aria-labelledby="swh">
-    <div class="wrap">
-      <div class="sw-head">
-        <div>
-          <p class="eyebrow">the stopwatch</p>
-          <h2 class="big" id="swh">the thing that started all this.</h2>
-          <p class="lede">start a timer. close this page. come back. it'll still be going.</p>
-        </div>
-        <div class="sw-links">
-          <a class="btn primary" id="swopen" href="https://aaghashm.github.io/persistent-stopwatch/" target="_blank" rel="noopener" hidden>open it ↗</a>
-          <a class="btn" href="https://github.com/aaghashm/persistent-stopwatch" target="_blank" rel="noopener">source</a>
-        </div>
-      </div>
-      <div class="sw-card" id="swcard">
-        <noscript><p class="sw-nojs">the pocket version needs javascript.<br>the source is on github.</p></noscript>
-        <div class="mini js-only" id="mini" hidden>
-          <p class="mini-note" id="mininote">the pocket version</p>
-          <p class="mini-time" id="minitime" aria-live="off">00:00:00<span>.00</span></p>
-          <p class="mini-sub" id="minisub">press start. close the tab. come back.</p>
-          <div class="mini-btns">
-            <button class="btn primary" id="ministart" type="button">start</button>
-            <button class="btn" id="minireset" type="button" hidden>reset</button>
-          </div>
-          <p class="mini-foot">reset, sure. pause? never.</p>
-        </div>
-      </div>
-      <ul class="sw-feats" aria-label="what it does">
-        <li>typescript</li><li>multiple timers</li><li>laps</li><li>history</li><li>csv export</li><li>offline pwa</li>
-      </ul>
-    </div>
-  </section>
+
 </main>
 
 <footer class="foot">
@@ -1462,37 +1432,6 @@ function fetchLive() {
     })
     .catch(() => {});
 }
-
-/* ---------- the stopwatch: embed if live, else a tiny one ---------- */
-const SW_URL = 'https://aaghashm.github.io/persistent-stopwatch/';
-const mini = $('#mini'), miniTime = $('#minitime'), miniSub = $('#minisub'), mStart = $('#ministart'), mReset = $('#minireset');
-let miniT = 0;
-function miniPaint() {
-  const s = store.get('sr:mini');
-  if (!s || typeof s.start !== 'number') { miniTime.innerHTML = '00:00:00<span>.00</span>'; return; }
-  const ms = Date.now() - s.start, t = Math.floor(ms / 1000), h = Math.floor(t / 3600);
-  miniTime.innerHTML = (h > 99 ? h : pad(h)) + ':' + pad(Math.floor(t / 60) % 60) + ':' + pad(t % 60) + (RM ? '' : '<span>.' + pad(Math.floor(ms / 10) % 100) + '</span>');
-}
-function miniState() {
-  const s = store.get('sr:mini'), on = !!(s && typeof s.start === 'number');
-  mStart.hidden = on; mReset.hidden = !on;
-  miniSub.textContent = on ? (s.seen && s.seen < Date.now() - 60000 ? 'you started this ' + dur(Date.now() - s.start) + ' ago. told you.' : 'now close the tab. it will keep going.') : 'press start. close the tab. come back.';
-  clearInterval(miniT);
-  if (on) miniT = setInterval(miniPaint, RM ? 1000 : 50);
-  miniPaint();
-}
-mStart.addEventListener('click', () => { store.set('sr:mini', { start: Date.now() }); miniState(); mReset.focus(); });
-mReset.addEventListener('click', () => { store.set('sr:mini', null); miniState(); mStart.focus(); });
-addEventListener('pagehide', () => { const s = store.get('sr:mini'); if (s && s.start) { s.seen = Date.now(); store.set('sr:mini', s); } });
-function showMini() { mini.hidden = false; miniState(); }
-function showFrame() {
-  const f = D.createElement('iframe');
-  f.src = SW_URL; f.title = 'persistent stopwatch, live'; f.loading = 'lazy';
-  $('#swcard').appendChild(f);
-  $('#swopen').hidden = false;
-}
-if (window.fetch) fetch(SW_URL, { cache: 'no-store' }).then((r) => (r.ok ? showFrame() : showMini())).catch(showMini);
-else showMini();
 
 /* ---------- visibility of the stage ---------- */
 if ('IntersectionObserver' in window) {
