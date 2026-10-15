@@ -344,7 +344,6 @@ h2.big:focus{outline:none}
       <ul class="facts" id="facts">
         <li><b>laps</b> 10</li>
         <li><b>fastest</b> +1d (tied)</li>
-        <li><b>longest gap</b> +489d</li>
         <li><b>busiest year</b> 2024, 6 repos</li>
       </ul>
       <div class="laphead" aria-hidden="true"><span>lap</span><span>repo</span><span>language</span><span>created</span><span>split</span></div>
@@ -358,7 +357,7 @@ h2.big:focus{outline:none}
         <li class="lap" data-name="vehicle_repair_app"><span class="lap-n"><span class="gd" aria-hidden="true"></span>07<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/vehicle_repair_app" target="_blank" rel="noopener">vehicle_repair_app</a></span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#eab308"></i>javascript</span><span class="lap-date">6 aug 2024</span></span><span class="lap-split"><span>+14d</span></span></li>
         <li class="lap" data-name="mlops-zoomcamp"><span class="lap-n"><span class="gd" aria-hidden="true"></span>08<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/mlops-zoomcamp" target="_blank" rel="noopener">mlops-zoomcamp</a></span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#f97316"></i>jupyter</span><span class="lap-date">17 nov 2024</span></span><span class="lap-split"><span>+103d</span></span></li>
         <li class="lap" data-name="App-Releases"><span class="lap-n"><span class="gd" aria-hidden="true"></span>09<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/App-Releases" target="_blank" rel="noopener">app-releases</a></span><span class="lap-blurb">i release open source apps here!</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#64748b"></i>no language</span><span class="lap-date">20 jan 2025</span></span><span class="lap-split"><span>+17d</span></span></li>
-        <li class="lap hero" data-name="persistent-stopwatch"><span class="lap-n"><span class="gd" aria-hidden="true"></span>10<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/persistent-stopwatch" target="_blank" rel="noopener">persistent-stopwatch</a><span class="badge b-streak">110-day streak</span></span><span class="lap-blurb">a stopwatch that keeps counting after you close the tab.</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#8b5cf6"></i>typescript</span><span class="lap-date">28 jun 2026</span></span><span class="lap-split"><span class="badge b-gap">longest gap</span><span>+489d</span></span></li>
+        <li class="lap hero" data-name="persistent-stopwatch"><span class="lap-n"><span class="gd" aria-hidden="true"></span>10<span class="sr gd-sr"></span></span><span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/persistent-stopwatch" target="_blank" rel="noopener">persistent-stopwatch</a><span class="badge b-streak">110-day streak</span></span><span class="lap-blurb">kde plasma stopwatch for linux. reboot all you want, it keeps counting.</span></span><span class="lap-meta"><span class="lap-lang"><i style="--c:#f34b7d"></i>c++</span><span class="lap-date">28 jun 2026</span></span><span class="lap-split"><span>+489d</span></span></li>
       </ol>
     </div>
   </section>
@@ -396,6 +395,7 @@ const LANGS = {
   Jupyter: { c: '#f97316', t: 'nb', label: 'jupyter', icon: ICON('jupyter') },
   JavaScript: { c: '#eab308', t: 'js', label: 'javascript', icon: ICON('javascript'), dark: 1 },
   TypeScript: { c: '#8b5cf6', t: 'ts', label: 'typescript', icon: ICON('typescript') },
+  'C++': { c: '#f34b7d', t: 'c++', label: 'c++', icon: ICON('cplusplus') },
   Java: { c: '#b45309', t: 'jv', label: 'java', icon: ICON('java') },
   HTML: { c: '#ef4444', t: '</>', label: 'html', icon: ICON('html5') },
   Tableau: { c: '#14b8a6', t: 'tb', label: 'tableau' },
@@ -413,7 +413,7 @@ const BASE = [
   ['2024-08-06', 'vehicle_repair_app', 'JavaScript', ''],
   ['2024-11-17', 'mlops-zoomcamp', 'Jupyter', ''],
   ['2025-01-20', 'App-Releases', null, 'i release open source apps here!'],
-  ['2026-06-28', 'persistent-stopwatch', 'TypeScript', 'a stopwatch that keeps counting after you close the tab.'],
+  ['2026-06-28', 'persistent-stopwatch', 'C++', 'kde plasma stopwatch for linux. reboot all you want, it keeps counting.'],
 ].map(([date, name, lang, blurb]) => ({ date, name, lang, blurb, isNew: false }));
 const HERO = 'persistent-stopwatch';
 const SKIP_NAMES = new Set(['aaghashm', 'aaghashm.github.io']);
@@ -1351,7 +1351,7 @@ function renderLaps() {
     const li = langInfo(r.lang);
     const fast = r.n > 1 && r.split === min, gap = r.n > 1 && r.split === max;
     const badges = (r.name === HERO ? '<span class="badge b-streak">110-day streak</span>' : '') + (r.isNew ? '<span class="badge b-new">new</span>' : '');
-    const sb = (fast ? '<span class="badge b-fast">fastest' + (tie ? ' (tied)' : '') + '</span>' : '') + (gap ? '<span class="badge b-gap">longest gap</span>' : '');
+    const sb = (fast ? '<span class="badge b-fast">fastest' + (tie ? ' (tied)' : '') + '</span>' : '');
     return '<li class="lap' + (r.name === HERO ? ' hero' : '') + '" data-name="' + esc(r.name) + '">' +
       '<span class="lap-n"><span class="gd" aria-hidden="true"></span>' + pad(r.n) + '<span class="sr gd-sr"></span></span>' +
       '<span class="lap-main"><span class="lap-title"><a class="lap-name" href="https://github.com/aaghashm/' + encodeURIComponent(r.name) + '" target="_blank" rel="noopener">' + esc(r.name.toLowerCase()) + '</a>' + badges + '</span>' +
@@ -1363,7 +1363,7 @@ function renderLaps() {
   W.blocks.forEach((b) => { if (b.hit) lapDot(b.r.name, 'got'); else if (b.missed) lapDot(b.r.name, 'miss'); });
   const yc = {}; L.forEach((r) => { const y = r.date.slice(0, 4); yc[y] = (yc[y] || 0) + 1; });
   const busy = Object.entries(yc).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
-  $('#facts').innerHTML = '<li><b>laps</b> ' + L.length + '</li><li><b>fastest</b> +' + min + 'd' + (tie ? ' (tied)' : '') + '</li><li><b>longest gap</b> +' + max + 'd</li><li><b>busiest year</b> ' + busy[0] + ', ' + busy[1] + ' repos</li>';
+  $('#facts').innerHTML = '<li><b>laps</b> ' + L.length + '</li><li><b>fastest</b> +' + min + 'd' + (tie ? ' (tied)' : '') + '</li><li><b>busiest year</b> ' + busy[0] + ', ' + busy[1] + ' repos</li>';
 }
 function renderFoot() {
   const n = BASE.length + extras.length;
