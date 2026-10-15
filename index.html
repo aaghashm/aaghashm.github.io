@@ -409,6 +409,8 @@ const LANGS = {
 };
 // load logos once; blocks fall back to the short text until they arrive
 for (const k in LANGS) if (LANGS[k].icon) { const im = new Image(); im.src = LANGS[k].icon; LANGS[k].img = im; }
+// commits per year across the repos on this page (counted from the github api, 15 oct 2026)
+const COMMITS = { 2022: 55, 2024: 92, 2025: 7, 2026: 117 };
 const BASE = [
   ['2022-09-19', 'PYTHON-TEXT-TO-SPEECH', 'Python', 'the first repo. lap one.'],
   ['2022-09-20', 'MACHINE-LEARNING-PROJECTS', 'Jupyter', ''],
@@ -1368,8 +1370,10 @@ function renderLaps() {
   $('#lapslist').innerHTML = html;
   W.blocks.forEach((b) => { if (b.hit) lapDot(b.r.name, 'got'); else if (b.missed) lapDot(b.r.name, 'miss'); });
   const yc = {}; L.forEach((r) => { const y = r.date.slice(0, 4); yc[y] = (yc[y] || 0) + 1; });
-  const busy = Object.entries(yc).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
-  $('#facts').innerHTML = '<li><b>laps</b> ' + L.length + '</li><li><b>fastest</b> +' + min + 'd' + (tie ? ' (tied)' : '') + '</li><li><b>busiest year</b> ' + busy[0] + ', ' + busy[1] + ' repos</li>';
+  // busiest = most commits, not most repos
+  const by = Object.keys(COMMITS).sort((a, b) => COMMITS[b] - COMMITS[a])[0];
+  const nr = yc[by] || 0;
+  $('#facts').innerHTML = '<li><b>laps</b> ' + L.length + '</li><li><b>fastest</b> +' + min + 'd' + (tie ? ' (tied)' : '') + '</li><li><b>busiest year</b> ' + by + ' · ' + nr + ' repo' + (nr === 1 ? '' : 's') + ' · ' + COMMITS[by] + ' commits</li>';
 }
 function renderFoot() {
   const n = BASE.length + extras.length;
