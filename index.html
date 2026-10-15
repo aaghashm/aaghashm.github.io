@@ -232,7 +232,13 @@ h2.big:focus{outline:none}
   .ctl .skip{padding:0 13px;font-size:12px}
   .hud-bot{left:16px;right:16px;bottom:14px;gap:6px}
   .chip{font-size:12px;padding:8px 11px}
-  .rcard{top:auto;bottom:calc(var(--hudh,34px) + 24px);left:16px;right:16px;width:auto;transform:translateY(calc(100% + 80px))}
+  /* phones: the card and messages sit in a slim strip under the clock, never over the track, and taps go through to the game */
+  .rcard{top:var(--hudtop,128px);bottom:auto;left:16px;right:16px;width:auto;padding:10px 14px;border-radius:12px;pointer-events:none;transform:translateY(-12px)}
+  .rcard .rc-blurb,.rcard .rc-link,.rcard .rc-bar{display:none}
+  .rcard .rc-name{font-size:16px;margin:2px 0 0}
+  .rcard .rc-meta{font-size:12px}
+  .toast{top:var(--hudtop,128px);bottom:auto;transform:translate(-50%,-16px);opacity:0;pointer-events:none;font-size:13px;padding:10px 14px;transition:transform .3s var(--ease),opacity .3s var(--ease)}
+  .toast.on{transform:translate(-50%,0);opacity:1}
   .title{top:24%}
   .hint{font-size:12px;margin-top:20px}
   section{padding-top:80px}
@@ -1208,7 +1214,7 @@ function updateHUD() {
 /* ---------- ui bits ---------- */
 const toastEl = $('#toast'), announceEl = $('#announce');
 let toastT = 0;
-function toast(msg, ms) { toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), ms || 2600); }
+function toast(msg, ms) { if (innerWidth <= 700) card.classList.remove('on'); toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), ms || 2600); }
 function announce(msg) { announceEl.textContent = ''; setTimeout(() => (announceEl.textContent = msg), 60); }
 const card = $('#rcard');
 let cardT = 0;
@@ -1222,6 +1228,7 @@ function showCard(b) {
   card.querySelector('.rc-meta').textContent = dayDate(b.day) + (info && info.n > 1 ? ' · +' + info.split + 'd' : ' · start');
   const bl = card.querySelector('.rc-blurb'); bl.textContent = b.r.blurb || ''; bl.hidden = !b.r.blurb;
   card.querySelector('.rc-link').href = 'https://github.com/aaghashm/' + encodeURIComponent(b.r.name);
+  if (innerWidth <= 700) toastEl.classList.remove('on');
   card.classList.remove('on'); void card.offsetWidth; card.classList.add('on');
   clearTimeout(cardT); cardT = setTimeout(() => card.classList.remove('on'), 4000);
   announce('got lap ' + (info ? info.n : '') + ': ' + b.r.name.toLowerCase() + ', ' + b.L.label + ', ' + dayDate(b.day) + '.');
@@ -1486,6 +1493,11 @@ updateClock(); updateHUD(); drawFavicon(); tick1();
 setInterval(tick1, 1000);
 requestAnimationFrame((t) => { last = t; frame(t); });
 fetchLive();
+
+// phones: messages go right under the top bar, so measure it
+const hudTop = D.querySelector('.hud-top');
+const placeStrip = () => { if (hudTop) D.documentElement.style.setProperty('--hudtop', Math.round(hudTop.getBoundingClientRect().height + 6) + 'px'); };
+placeStrip(); addEventListener('resize', placeStrip);
 
 // name and bio come from the github profile, so editing the profile updates the page
 if (window.fetch) fetch('https://api.github.com/users/aaghashm').then((r) => (r.ok ? r.json() : null)).then((u) => {
