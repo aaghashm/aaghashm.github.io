@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Aaghash M · still running</title>
-<meta name="description" content="Aaghash M, python dev. a little runner crossing every repo since 19 sep 2022. the clock never stops.">
+<meta name="description" content="Aaghash M, ai engineer. a little runner crossing every repo since 19 sep 2022. the clock never stops.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#faf7f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
@@ -292,8 +292,8 @@ h2.big:focus{outline:none}
       </div>
     </div>
     <div class="who">
-      <p class="nm">Aaghash M</p>
-      <div class="role">python dev</div>
+      <p class="nm" id="pname">Aaghash M</p>
+      <div class="role" id="prole">ai engineer</div>
     </div>
     <div class="clockbox">
       <div class="clock-label"><span class="live js-only" aria-hidden="true"></span>since 19 sep 2022</div>
@@ -302,7 +302,7 @@ h2.big:focus{outline:none}
   </div>
 
   <div class="title" id="title">
-    <h1>Aaghash M. <em>still running.</em></h1>
+    <h1><span id="hname">Aaghash M</span>. <em>still running.</em></h1>
     <div class="hint js-only" id="hint"><span><kbd>space</kbd> / tap to start + jump</span><span class="sep">·</span><span>hold <kbd>→</kbd> to sprint</span><span class="sep">·</span><span><kbd>s</kbd> to stop</span></div>
   </div>
 
@@ -1403,7 +1403,7 @@ function restore() {
 }
 
 /* ---------- favicon + title ---------- */
-const BASE_TITLE = 'Aaghash M · still running';
+let BASE_TITLE = 'Aaghash M · still running';
 const fav = D.createElement('canvas'); fav.width = fav.height = 32;
 const fctx = fav.getContext('2d'), favLink = $('#favicon');
 function drawFavicon() {
@@ -1486,6 +1486,17 @@ updateClock(); updateHUD(); drawFavicon(); tick1();
 setInterval(tick1, 1000);
 requestAnimationFrame((t) => { last = t; frame(t); });
 fetchLive();
+
+// name and bio come from the github profile, so editing the profile updates the page
+if (window.fetch) fetch('https://api.github.com/users/aaghashm').then((r) => (r.ok ? r.json() : null)).then((u) => {
+  if (!u) return;
+  // profile name is in caps, show it as "Aaghash M"
+  const name = (u.name || '').trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  if (name) { $('#pname').textContent = name; $('#hname').textContent = name; BASE_TITLE = name + ' · still running'; }
+  // first sentence of the bio is the role ("ai engineer"), the rest is already the page's tagline
+  const role = (u.bio || '').split('.')[0].trim().toLowerCase();
+  if (role) $('#prole').textContent = role;
+}).catch(() => {});
 })();
 </script>
 </body>
